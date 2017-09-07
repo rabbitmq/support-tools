@@ -1,0 +1,17 @@
+# RabbitMQ Support and Troubleshooting Extras
+
+This repository contains tools that are not yet ready to
+be included into RabbitMQ distribution, cannot be a plugin
+or cannot ship with RabbitMQ for any other reason.
+
+
+## Scripts
+
+See `scripts`.
+
+
+## Copyright & License
+
+(c) Pivotal Software, Inc. 2007-2017.
+
+See LICENSE.
