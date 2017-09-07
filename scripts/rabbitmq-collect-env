@@ -1,0 +1,504 @@
+#!/bin/sh
+
+## -------------------------------------------------------------------
+##
+## rabbitmq-collect-env: Collect info for RabbitMQ troubleshooting
+##
+## Based on `riak-debug' as developed by Basho Technologies, Inc
+##
+## Copyright (c) 2017 Basho Technologies, Inc.  All Rights Reserved.
+## Copyright (c) 2017 Pivotal Software, Inc.  All rights reserved.
+##
+## This file is provided to you under the Apache License,
+## Version 2.0 (the "License"); you may not use this file
+## except in compliance with the License.  You may obtain
+## a copy of the License at
+##
+##   http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing,
+## software distributed under the License is distributed on an
+## "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+## KIND, either express or implied.  See the License for the
+## specific language governing permissions and limitations
+## under the License.
+##
+## -------------------------------------------------------------------
+
+set +e
+
+# value greater than 2 is debug verbosity
+verbose=0
+hostname="$(hostname)"
+
+output_dir='output_dir_init'
+system_output_dir='system_output_dir_init'
+rabbitmq_output_dir='rabbitmq_output_dir_init'
+
+# default argument to cp command when used
+cp_args='-f'
+rm_args='-rf'
+
+onexit()
+{
+    if [ -d "$output_dir" ]
+    then
+        if [ $verbose -gt 2 ]
+        then
+            printf "[DEBUG] preserving output directory '%s'\n" "$output_dir"
+        else
+            rm "$rm_args" "$output_dir"
+        fi
+    fi
+}
+
+trap onexit EXIT
+
+mkdir_or_die()
+{
+    if [ -d "$1" ]
+    then
+        return
+    fi
+
+    if mkdir -p "$1"
+    then
+        if [ $verbose -gt 2 ]
+        then
+            printf "[DEBUG] created directory: '%s'\n" "$1"
+        fi
+    else
+        printf "[ERROR] could not create directory '%s'\n" "$1" 1>&2
+        exit 1
+    fi
+}
+
+command_exists()
+{
+    command -v "$1" > /dev/null 2>&1
+}
+
+user_check()
+{
+    name="$(id -un)"
+    if [ "$name" = 'root' ]
+    then
+        if [ $verbose -gt 2 ]
+        then
+            printf "[DEBUG] running %s as root\n" "$0"
+        fi
+    elif [ "$name" = 'rabbitmq' ]
+    then
+        printf "[INFO] running as 'rabbitmq' user, some commands may fail. Consider running as 'root' user.\n"
+    else
+        printf "[WARN] script is not running as the 'root' or 'rabbitmq' user, many commands may fail.\n"
+    fi
+}
+
+usage()
+{
+    cat << 'EOF'
+rabbitmq-collect-env: Collect info from a RabbitMQ node for troubleshooting
+
+Usage: rabbitmq-collect-env [-h] [-v [-v [-v]]]
+
+-h, --help       Print this usage statement.
+-v, --verbose    Print verbose messages to stdout. More instances of
+                 this option will result in more verbose output.
+EOF
+}
+
+parse_options()
+{
+    while [ -n "$1" ]
+    do
+        case "$1" in
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            -v|--verbose)
+                verbose="$((verbose + 1))"
+                ;;
+        esac
+        shift
+    done
+}
+
+create_output_directories()
+{
+    output_dir="$(mktemp -d)"
+    system_output_dir="$output_dir/$hostname/system"
+    rabbitmq_output_dir="$output_dir/$hostname/rabbitmq"
+
+    mkdir_or_die "$system_output_dir"
+    mkdir_or_die "$rabbitmq_output_dir"
+
+    if [ $verbose -gt 2 ]
+    then
+        printf "[DEBUG] top-level output dir: '%s'\n" "$output_dir"
+    fi
+}
+
+build_command_args()
+{
+    if [ $verbose -gt 2 ]
+    then
+        cp_args='-vf'
+        rm_args='-vrf'
+    fi
+}
+
+init_environment()
+{
+    pcf_env_file='/var/vcap/jobs/rabbitmq-server/env'
+    if [ -s "$pcf_env_file" ]
+    then
+        # Note: some of the vars exported in this file:
+        #
+        # RUN_DIR=/var/vcap/sys/run/rabbitmq-server
+        # RABBITMQ_PID_FILE="$RUN_DIR/pid"
+        # RABBITMQ_SERVER_PACKAGE=/var/vcap/jobs/rabbitmq-server/packages/rabbitmq-server
+        # RABBITMQ_MNESIA_BASE="/var/vcap/store/rabbitmq-server/mnesia"
+        # RABBITMQ_LOG_BASE=/var/vcap/sys/log/rabbitmq-server
+        # RABBITMQ_CONFIG_FILE=/var/vcap/jobs/rabbitmq-server/rabbitmq
+        # RABBITMQ_ADMIN_USER="admin"
+        # RABBITMQ_ADMIN_PASS="random-string"
+        # RABBITMQ_NODENAME="rabbit@rmq0-rmq-gcp-36"
+        # RABBITMQ_CLUSTER_NAME="rmq-gcp-36"
+        #
+        # Note: sourcing the following also adds $RABBITMQ_SERVER_PACKAGE/sbin to PATH
+        # shellcheck source=/dev/null
+        . "$pcf_env_file"
+        export RABBITMQ_ENV="$RABBITMQ_SERVER_PACKAGE/sbin/rabbitmq-env"
+        rabbitmq_etc_dir="$RABBITMQ_SERVER_PACKAGE/etc"
+    fi
+
+    if [ -z "$RABBITMQ_ENV" ]
+    then
+        export RABBITMQ_ENV='/usr/lib/rabbitmq/bin/rabbitmq-env'
+    fi
+    if [ -z "$RABBITMQ_SCRIPTS_DIR" ]
+    then
+        # shellcheck disable=SC2155
+        export RABBITMQ_SCRIPTS_DIR="$(dirname "$RABBITMQ_ENV")"
+    fi
+    if [ -s "$RABBITMQ_ENV" ]
+    then
+        # shellcheck source=/dev/null
+        . "$RABBITMQ_ENV"
+    else
+        printf "[WARN] expected to find rabbitmq-env at '%s', but file does not exist.\n" "$RABBITMQ_ENV"
+    fi
+
+    if [ -z "$rabbitmq_etc_dir" ]
+    then
+        rabbitmq_etc_dir='/etc/rabbitmq'
+    fi
+    if [ ! -d "$rabbitmq_etc_dir" ]
+    then
+        printf "[WARN] expected to find RabbitMQ 'etc' directory at '%s', but directory does not exist.\n" "$rabbitmq_etc_dir"
+    fi
+
+    if [ -z "$RABBITMQ_LOG_BASE" ]
+    then
+        export RABBITMQ_LOG_BASE=/var/log/rabbitmq
+    fi
+    if [ ! -d "$RABBITMQ_LOG_BASE" ]
+    then
+        printf "[WARN] expected to find log directory at '%s', but directory does not exist.\n" "$RABBITMQ_LOG_BASE"
+    fi
+}
+
+### collect output_file command [cmd_args...]
+# Prints the output of a command to the given file.
+# Relies on the ${verbose} global.
+# When ${verbose} is 0, this script will output
+#  - `.` for a successfully captured command
+#  - `_` for a command that could not be found
+#  - `E` for a command that returned a non-zero retval
+# When $verbose is 1, failed commands will be logged.
+# When $verbose is 2, missing commands will logged as well.
+# When $verbose is 3, successful commands will be logged as well.
+collect()
+{
+    # Capture and shift away the output directory.
+    collect_output_dir="$1"
+    shift
+
+    if [ ! -d "$collect_output_dir" ]
+    then
+        printf "[ERROR] collect - expected directory '%s' to exist!\n" "$collect_output_dir" 1>&2
+        exit 1
+    fi
+
+    collect_output_info_dir="$collect_output_dir/.info"
+    mkdir_or_die "$collect_output_info_dir"
+
+    # Capture and shift away the output file name so we can handle target
+    # command and arguments as a single variable.
+    collect_outfile="$1"
+    shift
+
+    # If the executable can't be found, log the miss and return.
+    if ! command_exists "$1"
+    then
+        if [ $verbose -gt 1 ]
+        then
+            printf "[WARN] command '%s' not found.\n" "$1"
+        else
+            printf '_'
+        fi
+        return
+    fi
+
+    # shellcheck disable=SC2048
+    $* >> "$collect_output_dir/$collect_outfile" 2>&1
+    collect_rv=$?
+
+    # Record the text of the command and the returned value in the .info/$out
+    # file to aid automation.
+    # Note: this will miss some escaping for, e.g., find, but it's not critical.
+    # The command that was run can be fetched with  `head -1 .info/$out`.
+    # The returned value can be fetched with        `tail -1 .info/$out`.
+    if [ $verbose -gt 2 ]
+    then
+        printf "[DEBUG] running '%s'\n" "$*"
+    fi
+    echo "$*" > "$collect_output_info_dir/$collect_outfile"
+    echo $collect_rv >> "$collect_output_info_dir/$collect_outfile"
+
+    if [ $collect_rv -eq 0 ]
+    then
+        if [ $verbose -gt 2 ]
+        then
+            printf "[DEBUG] '%s' exit code: %d\n" "$*" "$collect_rv"
+        else
+            printf '.'
+        fi
+    else
+        if [ $verbose -gt 0 ]
+        then
+            printf "[ERROR] command '%s' failed, exit code: %d\n" "$*" "$collect_rv" 1>&2
+        else
+            printf 'E'
+        fi
+    fi
+
+    return $collect_rv
+}
+
+collect_system()
+{
+    collect "$system_output_dir" "$@"
+}
+
+collect_system_info()
+{
+    collect_system blkid        blkid
+    collect_system date         date
+    collect_system df_h         df -h
+    collect_system df_i         df -i
+    collect_system dmesg        dmesg
+    collect_system dmesg_t      dmesg -T # NB: This will fail on most systems.
+    collect_system dmidecode    dmidecode
+    collect_system dpkg         dpkg -l
+    collect_system printenv     printenv
+    collect_system fdisk        fdisk -l
+    collect_system free         free -h
+    collect_system hostname     hostname
+    collect_system ifconfig     ifconfig -a
+    collect_system java_version java -version
+    collect_system last         last
+    collect_system linux_uptime cat /proc/uptime
+    collect_system lsb_release  lsb_release -a
+    collect_system lsblk        lsblk -a
+    collect_system lscpu        lscpu
+    collect_system lsof_tcp     lsof -nPi TCP
+    collect_system mount        mount
+    collect_system netstat_an   netstat -an
+    collect_system netstat_i    netstat -i
+    collect_system netstat_rn   netstat -rn
+    collect_system netstat_s    netstat -s
+    collect_system pfctl_nat    pfctl -s nat
+    collect_system pfctl_rules  pfctl -s rules
+    collect_system pkg_info     pkg_info
+    collect_system ps           ps aux
+    collect_system pstree       pstree -panl
+    collect_system rpm          rpm -qa
+    collect_system sestatus     sestatus -v
+    collect_system sysctl       sysctl -a
+    collect_system uname        uname -a
+    collect_system uptime       uptime
+    collect_system vmstat       vmstat -S M 1 10
+    collect_system w            w
+    collect_system zfs_list     zfs list
+    collect_system zpool_list   zpool list
+
+    # If swapctl exists, prefer it over swapon
+    if command_exists swapctl
+    then
+        collect_system swapctl swapctl -s
+    else
+        collect_system swapon swapon -s
+    fi
+
+    # Get device readahead
+    if command_exists blockdev
+    then
+        for mount_point in $(mount | awk '/^\// { print $1 }')
+        do
+            flat_point="$(echo "$mount_point" | tr '/' '_')"
+            collect_system "blockdev$flat_point" blockdev --getra "$mount_point"
+        done
+    else
+        collect_system blockdev_not_available echo 'blockdev command is not available'
+    fi
+
+    # Running iptables commands if the module is not loaded can automatically
+    # load them. This is rarely desired and can even cause connectivity
+    # problems if, e.g., nf_conntrack gets autoloaded and autoenabled.
+    if [ -f /proc/modules ]
+    then
+        if grep '^iptable_filter' /proc/modules > /dev/null 2>&1
+        then
+            collect_system iptables_rules iptables -n -L
+        else
+            collect_system iptables_rules echo "iptables module not loaded"
+        fi
+
+        if grep '^nf_conntrack' /proc/modules > /dev/null 2>&1
+        then
+            collect_system iptables_nat iptables -t nat -n -L
+        else
+            collect_system iptables_nat echo "nf_conntrack module not loaded"
+        fi
+    fi
+
+    # Capture iostat, based on (a guess of) which distribution is running.
+    case "$(uname)" in
+        Linux)
+            collect_system iostat_linux iostat -txm 1 10;;
+        *)
+            collect_system iostat_bsd iostat -dIw 1 -c 5;;
+    esac
+
+    ## Collect Files
+    [ -f /etc/release ]              && collect_system release cat /etc/release
+    [ -f /etc/redhat-release ]       && collect_system redhat_release cat /etc/redhat-release
+    [ -f /etc/debian_version ]       && collect_system debian_version cat /etc/debian_version
+    [ -f /etc/security/limits.conf ] && collect_system limits_conf cat /etc/security/limits.conf
+
+    [ -f /var/log/messages ] && collect_system messages cat /var/log/messages
+    [ -f /var/log/syslog ]   && collect_system messages cat /var/log/syslog
+    [ -f /var/log/kern.log ] && collect_system messages cat /var/log/kern.log
+
+    [ -f /proc/version ]   && collect_system proc_version cat /proc/version
+    [ -f /proc/cpuinfo ]   && collect_system proc_cpuinfo cat /proc/cpuinfo
+    [ -f /proc/meminfo ]   && collect_system proc_meminfo cat /proc/meminfo
+    [ -f /proc/diskstats ] && collect_system diskstats cat /proc/diskstats
+
+    ## Collect Directories and Finds
+    [ -d /dev/disk/by-id ] && collect_system disk_by_id \
+                                  ls -l /dev/disk/by-id
+    [ -d /sys/block ]      && collect_system schedulers \
+                                  find /sys/block/ -type l -print \
+                                      -exec cat {}/queue/scheduler \;
+    [ -d /proc/net/bonding ] && collect_system bonding \
+                                    find /proc/net/bonding/ -type f -print \
+                                        -exec cat {} \;
+    [ -d /sys/class/net ] && collect_system rx_crc_errors \
+                                 find /sys/class/net/ -type l -print \
+                                     -exec cat {}/statistics/rx_crc_errors \;
+
+    if [ -d /etc/security/limits.d ] && ls -1 /etc/security/limits.d/*.conf > /dev/null 2>&1
+    then
+        collect_limits_dir="$system_output_dir/limits.d"
+        mkdir_or_die "$collect_limits_dir"
+        cp "$cp_args" /etc/security/limits.d/*.conf "$collect_limits_dir"
+    fi
+}
+
+collect_rabbitmq()
+{
+    collect "$rabbitmq_output_dir" "$@"
+}
+
+collect_rabbitmq_info()
+{
+    set > "$rabbitmq_output_dir/shell_variables"
+
+    if [ -d "$rabbitmq_etc_dir" ]
+    then
+        rabbitmq_output_etc_dir="$rabbitmq_output_dir/etc"
+        mkdir_or_die "$rabbitmq_output_etc_dir"
+        if [ $verbose -gt 2 ]
+        then
+            echo "[DEBUG] running command 'tar -C \"$rabbitmq_etc_dir\" -cf - | tar -C \"$rabbitmq_output_etc_dir\" -xf -'"
+        else
+            printf '.'
+        fi
+        tar -C "$rabbitmq_etc_dir" -cf - . | tar -C "$rabbitmq_output_etc_dir" -xf -
+    else
+        printf "[WARN] '%s' directory not present.\n" "$rabbitmq_etc_dir"
+    fi
+
+    if [ -d "$RABBITMQ_LOG_BASE" ]
+    then
+        rabbitmq_output_logs_dir="$rabbitmq_output_dir/logs"
+        mkdir_or_die "$rabbitmq_output_logs_dir"
+        if [ $verbose -gt 2 ]
+        then
+            echo "[DEBUG] running command 'tar -C \"$RABBITMQ_LOG_BASE\" -cf - | tar -C \"$rabbitmq_output_logs_dir\" -xf -'"
+        else
+            printf '.'
+        fi
+        tar -C "$RABBITMQ_LOG_BASE" -cf - . | tar -C "$rabbitmq_output_logs_dir" -xf -
+    else
+        printf "[WARN] '%s' directory not present.\n" "$RABBITMQ_LOG_BASE"
+    fi
+
+    rabbitmqctl_timeout=120
+
+    collect_rabbitmq rabbitmqctl_status timeout "$rabbitmqctl_timeout" rabbitmqctl status
+
+    collect_rabbitmq rabbitmqctl_environment timeout "$rabbitmqctl_timeout" rabbitmqctl environment
+
+    collect_rabbitmq rabbitmqctl_cluster_status timeout "$rabbitmqctl_timeout" rabbitmqctl cluster_status
+
+    collect_rabbitmq rabbitmqctl_eval_maybe_stuck timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'rabbit_diagnostics:maybe_stuck().'
+
+    collect_rabbitmq rabbitmqctl_report timeout "$rabbitmqctl_timeout" rabbitmqctl report
+}
+
+build_output_archive()
+{
+    if [ $verbose -gt 2 ]
+    then
+        echo "[DEBUG] running command 'tar -C \"$output_dir\" -zcf \"$RABBITMQ_LOG_BASE/rabbitmq-env-$hostname.tgz\"'"
+    else
+        printf '.'
+    fi
+    output_archive="$RABBITMQ_LOG_BASE/rabbitmq-env-$hostname-$(date '+%Y%m%d-%H%M%S').tgz"
+    tar -C "$output_dir" -zcf "$output_archive" .
+    printf "\n[INFO] output archive: '%s'\n" "$output_archive"
+}
+
+init()
+{
+    parse_options "$@"
+    user_check
+    create_output_directories
+    build_command_args
+    init_environment
+}
+
+main()
+{
+    init "$@"
+    collect_system_info
+    collect_rabbitmq_info
+    build_output_archive
+}
+
+main "$@"
