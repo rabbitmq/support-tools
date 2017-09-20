@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+
+# defaults
+declare -r default_vhost='/'
+declare -r default_queue_regex='.*'
+
+# Nothing to modify from here to the end
+declare -a nodes
+declare -i node_count=0
+
+errexit()
+{
+    echo "$(now) [ERROR] $*" 1>&2
+    exit 1
+}
+
+now()
+{
+    date '+%Y%m%d-%H:%M:%S'
+}
+
+sync_queue()
+{
+    echo -n "$(now) [INFO] "
+    rabbitmqctl sync_queue -p "$vhost" "$1"
+}
+
+get_queue_master()
+{
+    local -r queue="$1"
+    rabbitmqctl -q list_queues name pid | grep -E "^$queue\>" | cut -f2 | sed -e 's/[><]//g' -e 's/\(\.[0-9]\+\)\{3\}//g'
+}
+
+ensure_node_health()
+{
+    # shellcheck disable=SC2155
+    local tmp="$(mktemp)"
+    for n in "${nodes[@]}"
+    do
+        if ! rabbitmqctl -n "$n" node_health_check > "$tmp" 2>&1
+        then
+            echo "$(now) [ERROR] Node '$n' failed health check:" 1>&2
+            cat "$tmp" 1>&2
+            rm -f "$tmp"
+            exit 1
+        fi
+    done
+    rm -f "$tmp"
+}
+
+set_temp_queue_policies()
+{
+    echo "$(now) [INFO] Setting temporary policies on vhost: $vhost"
+
+    ensure_node_health
+
+    local current_master=''
+    local new_master=''
+    local updated_master=''
+    local policy_set_master=''
+    local -i count=0
+    local -i master_idx=0
+    for queue in $(rabbitmqctl -q -p "$vhost" list_queues name | grep -E "$queue_regex")
+    do
+        ensure_node_health
+
+        current_master="$(get_queue_master "$queue")"
+        new_master="${nodes[$master_idx]}"
+        if [[ $new_master == "$current_master" ]]
+        then
+            echo "$(now) [INFO] Not updating current queue master '$current_master' for queue '$queue'"
+        else
+            echo "$(now) [INFO] Updating queue master for queue '$queue' from '$current_master' to '$new_master'"
+            echo -n "$(now) [INFO] "
+            rabbitmqctl set_policy -p "$vhost" --priority 990 --apply-to 'queues' "$queue-ha-temp" "^$queue$" '{"ha-mode":"exactly","ha-params":1}'
+            sync_queue "$queue"
+
+            policy_set_master="{\"ha-mode\":\"nodes\",\"ha-params\":[\"$new_master\"]}"
+            echo -n "$(now) [INFO] "
+            rabbitmqctl set_policy -p "$vhost" --priority 992 --apply-to 'queues' "$queue-ha-temp" "^$queue$" "$policy_set_master"
+            sync_queue "$queue"
+
+            count=0
+            while true
+            do
+                updated_master="$(get_queue_master "$queue")"
+                if [[ $new_master == "$updated_master" ]]
+                then
+                    echo "$(now) [INFO] Queue master successfully updated: '$updated_master'"
+                    break
+                else
+                    (( count = count + 1 ))
+                    echo "$(now) [WARNING] queue master has not yet updated, wanted '$new_master', got '$updated_master' (attempts: $count)"
+                    sleep 5
+                fi
+            done
+
+            echo -n "$(now) [INFO] "
+            rabbitmqctl clear_policy -p "$vhost" "$queue-ha-temp"
+            sync_queue "$queue"
+        fi
+
+        (( master_idx = master_idx + 1 ))
+        if (( master_idx == node_count ))
+        then
+            master_idx=0
+        fi
+    done
+}
+
+validate()
+{
+    for cmd in erl rabbitmqctl
+    do
+        if ! command -v "$cmd" &> /dev/null
+        then
+            errexit "'$cmd' must be executable and in your PATH"
+        fi
+    done
+
+    local -i i=0
+    for node in $(rabbitmqctl eval 'rabbit_nodes:all_running().' | sed -e "s/[][']//g" -e 's/,/ /g')
+    do
+        nodes[$i]="$node"
+        (( i = i + 1 ))
+    done
+
+    node_count="${#nodes[@]}"
+    if (( node_count < 2 ))
+    then
+        errexit "At least two clustered nodes are required for running this script!"
+    fi
+}
+
+usage()
+{
+    cat << EOF
+$0 [-p vhost] [-r regex]
+
+-p vhost    use 'vhost' instead of default '$default_vhost'
+-r regex    use 'regex' to select queues for which the queue master
+            should be migrated. Default is '$default_queue_regex'
+EOF
+}
+
+parse_options()
+{
+    local OPTARG
+    local OPTIND
+    local opt
+    local vhost_opt_set='false'
+    local queue_regex_opt_set='false'
+
+    while getopts ':hp:r:' opt "$@"
+    do
+        case "$opt" in
+            p)
+                vhost_opt_set='true'
+                declare -gr vhost="$OPTARG"
+                ;;
+            r)
+                queue_regex_opt_set='true'
+                declare -gr queue_regex="$OPTARG"
+                ;;
+            h)
+                usage
+                exit 0
+                ;;
+            *)
+                usage
+                exit 1
+                ;;
+        esac
+    done
+    shift $((OPTIND-1))
+
+    if [[ $vhost_opt_set == 'false' ]]
+    then
+        declare -gr vhost="$default_vhost"
+    fi
+    if [[ $queue_regex_opt_set == 'false' ]]
+    then
+        declare -gr queue_regex="$default_queue_regex"
+    fi
+}
+
+main()
+{
+    parse_options "$@"
+    validate
+    set_temp_queue_policies
+}
+
+main "$@"
