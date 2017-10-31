@@ -468,6 +468,9 @@ collect_rabbitmq_info()
 
     collect_rabbitmq rabbitmqctl_eval_maybe_stuck timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'rabbit_diagnostics:maybe_stuck().'
 
+    collect_rabbitmq rabbitmqctl_limits timeout "$rabbitmqctl_timeout" rabbitmqctl eval \
+        'U=os:cmd("ulimit -n"),P=erlang:system_info(process_limit),io:format("ulimit ~p~nprocess_limit ~w~n",[U,P]).'
+
     collect_rabbitmq rabbitmqctl_report timeout "$rabbitmqctl_timeout" rabbitmqctl report
 }
 
