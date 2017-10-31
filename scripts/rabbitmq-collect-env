@@ -170,18 +170,18 @@ init_environment()
         # Note: sourcing the following also adds $RABBITMQ_SERVER_PACKAGE/sbin to PATH
         # shellcheck source=/dev/null
         . "$pcf_env_file"
-        export RABBITMQ_ENV="$RABBITMQ_SERVER_PACKAGE/sbin/rabbitmq-env"
+        RABBITMQ_ENV="$RABBITMQ_SERVER_PACKAGE/sbin/rabbitmq-env"
         rabbitmq_etc_dir="$RABBITMQ_SERVER_PACKAGE/etc"
     fi
 
     if [ -z "$RABBITMQ_ENV" ]
     then
-        export RABBITMQ_ENV='/usr/lib/rabbitmq/bin/rabbitmq-env'
+        RABBITMQ_ENV='/usr/lib/rabbitmq/bin/rabbitmq-env'
     fi
     if [ -z "$RABBITMQ_SCRIPTS_DIR" ]
     then
         # shellcheck disable=SC2155
-        export RABBITMQ_SCRIPTS_DIR="$(dirname "$RABBITMQ_ENV")"
+        RABBITMQ_SCRIPTS_DIR="$(dirname "$RABBITMQ_ENV")"
     fi
     if [ -s "$RABBITMQ_ENV" ]
     then
@@ -190,6 +190,11 @@ init_environment()
     else
         printf "[WARN] expected to find rabbitmq-env at '%s', but file does not exist.\n" "$RABBITMQ_ENV"
     fi
+
+    # NB: it is very important to *not* export these as they will screw up
+    # execution of rabbitmqctl later on
+    unset RABBITMQ_ENV
+    unset RABBITMQ_SCRIPTS_DIR
 
     if [ -z "$rabbitmq_etc_dir" ]
     then
