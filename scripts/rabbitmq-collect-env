@@ -207,7 +207,7 @@ init_environment()
 
     if [ -z "$RABBITMQ_LOG_BASE" ]
     then
-        export RABBITMQ_LOG_BASE=/var/log/rabbitmq
+        RABBITMQ_LOG_BASE=/var/log/rabbitmq
     fi
     if [ ! -d "$RABBITMQ_LOG_BASE" ]
     then
@@ -473,8 +473,10 @@ collect_rabbitmq_info()
 
     collect_rabbitmq rabbitmqctl_eval_maybe_stuck timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'rabbit_diagnostics:maybe_stuck().'
 
-    collect_rabbitmq rabbitmqctl_limits timeout "$rabbitmqctl_timeout" rabbitmqctl eval \
-        'U=os:cmd("ulimit -n"),P=erlang:system_info(process_limit),io:format("ulimit ~p~nprocess_limit ~w~n",[U,P]).'
+    pid=$(timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'os:getpid().' | tr -d '""')
+    [ -f "/proc/$pid/limits" ] && collect_rabbitmq rabbitmq_pid_limits cat "/proc/$pid/limits"
+
+    collect_rabbitmq rabbitmqctl_process_limit timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'erlang:system_info(process_limit).'
 
     collect_rabbitmq rabbitmqctl_report timeout "$rabbitmqctl_timeout" rabbitmqctl report
 }
