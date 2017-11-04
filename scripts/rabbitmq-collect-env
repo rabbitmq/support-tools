@@ -471,7 +471,7 @@ collect_rabbitmq_info()
 
     collect_rabbitmq rabbitmqctl_cluster_status timeout "$rabbitmqctl_timeout" rabbitmqctl cluster_status
 
-    collect_rabbitmq rabbitmqctl_eval_maybe_stuck timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'rabbit_diagnostics:maybe_stuck().'
+    collect_rabbitmq rabbitmqctl_maybe_stuck timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'rabbit_diagnostics:maybe_stuck().'
 
     pid=$(timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'os:getpid().' | tr -d '""')
     [ -f "/proc/$pid/limits" ] && collect_rabbitmq rabbitmq_pid_limits cat "/proc/$pid/limits"
@@ -479,6 +479,8 @@ collect_rabbitmq_info()
     collect_rabbitmq rabbitmqctl_process_limit timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'erlang:system_info(process_limit).'
 
     collect_rabbitmq rabbitmqctl_report timeout "$rabbitmqctl_timeout" rabbitmqctl report
+
+    collect_rabbitmq rabbitmqctl_inet_i timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'inet:i().'
 }
 
 build_output_archive()
