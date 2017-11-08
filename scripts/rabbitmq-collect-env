@@ -128,8 +128,9 @@ parse_options()
 create_output_directories()
 {
     output_dir="$(mktemp -d)"
-    system_output_dir="$output_dir/$hostname/system"
-    rabbitmq_output_dir="$output_dir/$hostname/rabbitmq"
+    top_output_dir="$output_dir/$hostname"
+    system_output_dir="$top_output_dir/system"
+    rabbitmq_output_dir="$top_output_dir/rabbitmq"
 
     mkdir_or_die "$system_output_dir"
     mkdir_or_die "$rabbitmq_output_dir"
@@ -483,6 +484,22 @@ collect_rabbitmq_info()
     collect_rabbitmq rabbitmqctl_inet_i timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'inet:i().'
 }
 
+collect_overview_info()
+{
+    overview_file="$top_output_dir/overview"
+    ip_addresses="$(ifconfig | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1 }')"
+    rabbitmq_version="$(rabbitmqctl eval '{_,_,V}=proplists:lookup(rabbit,application:which_applications()),V.' | tr -d '"')"
+    erlang_version="$(rabbitmqctl eval 'erlang:system_info(otp_release).' | tr -d '"')"
+    {
+        echo "Hostname: $hostname"
+        echo "IP Addresses:"
+        echo "$ip_addresses"
+        echo "RabbitMQ: $rabbitmq_version"
+        echo "Erlang: $erlang_version"
+    } > "$overview_file" 2>&1
+}
+
+
 build_output_archive()
 {
     if [ $verbose -gt 2 ]
@@ -510,6 +527,7 @@ main()
     init "$@"
     collect_system_info
     collect_rabbitmq_info
+    collect_overview_info
     build_output_archive
 }
 
