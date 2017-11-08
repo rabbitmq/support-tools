@@ -12,10 +12,10 @@ Other necessary information includes the following:
 * Erlang version
 * Client library (or libraries) used and versions
 * System topology - for every server running RabbitMQ, provide the following information:
- * Hostname
- * IP address
- * Cluster membership
- * Node type (disc, ram)
+    * Hostname
+    * IP address
+    * Cluster membership
+    * Node type (disc, ram)
 
 ## General Questions
 
