@@ -4,7 +4,7 @@ When reporting an issue with RabbitMQ, providing as much information as possible
 
 ## Gather Information
 
-The [`rabbitmq-collect-env`](https://raw.githubusercontent.com/rabbitmq/support-tools/master/scripts/rabbitmq-collect-env) script will run commands to gather system information and RabbitMQ logs. At the root of the archive created by this script will be a file called `overview` which contains some important information.
+The [`rabbitmq-collect-env`](https://raw.githubusercontent.com/rabbitmq/support-tools/master/scripts/rabbitmq-collect-env) script will run commands to gather system information and RabbitMQ logs. At the root of the archive created by this script will be a file called `overview` which contains some important information. *Note:* this script is **NOT** compatible with Windows systems.
 
 Other necessary information includes the following:
 
