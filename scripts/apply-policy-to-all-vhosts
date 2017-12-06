@@ -16,11 +16,13 @@
 
 set -e -o pipefail
 
-rabbitmqctl list_vhosts |
+declare -r rabbitmqctl_cmd="${RABBITMQCTL:-rabbitmqctl}"
+
+"$rabbitmqctl_cmd" list_vhosts |
   tail -n +2 |
   while read -r _vhost
   do
-    rabbitmqctl set_policy -p "$_vhost" \
+    "$rabbitmqctl_cmd" set_policy -p "$_vhost" \
       --priority "${POLICY_PRIORITY:?must be set}" \
       --apply-to "${POLICY_APPLY_TO:?must be set}" \
       "${POLICY_NAME:?must be set}" \
