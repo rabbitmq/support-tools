@@ -1,0 +1,6 @@
+#!/bin/sh
+
+set -e -o pipefail
+
+rabbitmqctl list_vhosts |
+  tail -n +2
