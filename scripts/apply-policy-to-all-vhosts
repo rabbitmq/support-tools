@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+# Apply a single policy to all vhosts
+#
+# https://www.rabbitmq.com/parameters.html
+#
+# Example:
+#
+#       export POLICY_NAME='limit_hystrix_queues'
+#       export POLICY_PATTERN='spring.cloud.stream.hystrix.*'
+#       export POLICY_DEFINITION='{"max-length-bytes":100000}'
+#       export POLICY_PRIORITY='51'
+#       export POLICY_APPLY_TO='queues'
+#
+#       apply-policy-to-all-vhosts
+
+set -e -o pipefail
+
+rabbitmqctl list_vhosts |
+  tail -n +2 |
+  while read -r _vhost
+  do
+    rabbitmqctl set_policy -p "$_vhost" \
+      --priority "${POLICY_PRIORITY:?must be set}" \
+      --apply-to "${POLICY_APPLY_TO:?must be set}" \
+      "${POLICY_NAME:?must be set}" \
+      "${POLICY_PATTERN:?must be set}" \
+      "${POLICY_DEFINITION:?must be set}"
+  done
