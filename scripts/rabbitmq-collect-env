@@ -45,7 +45,7 @@ onexit()
     then
         if [ $verbose -gt 2 ]
         then
-            printf "[DEBUG] preserving output directory '%s'\n" "$output_dir"
+            printf "[DEBUG] preserving output directory '%s'\\n" "$output_dir"
         else
             rm "$rm_args" "$output_dir"
         fi
@@ -65,10 +65,10 @@ mkdir_or_die()
     then
         if [ $verbose -gt 2 ]
         then
-            printf "[DEBUG] created directory: '%s'\n" "$1"
+            printf "[DEBUG] created directory: '%s'\\n" "$1"
         fi
     else
-        printf "[ERROR] could not create directory '%s'\n" "$1" 1>&2
+        printf "[ERROR] could not create directory '%s'\\n" "$1" 1>&2
         exit 1
     fi
 }
@@ -85,13 +85,13 @@ user_check()
     then
         if [ $verbose -gt 2 ]
         then
-            printf "[DEBUG] running %s as root\n" "$0"
+            printf "[DEBUG] running %s as root\\n" "$0"
         fi
     elif [ "$name" = 'rabbitmq' ]
     then
-        printf "[INFO] running as 'rabbitmq' user, some commands may fail. Consider running as 'root' user.\n"
+        printf "[INFO] running as 'rabbitmq' user, some commands may fail. Consider running as 'root' user.\\n"
     else
-        printf "[WARN] script is not running as the 'root' or 'rabbitmq' user, many commands may fail.\n"
+        printf "[WARN] script is not running as the 'root' or 'rabbitmq' user, many commands may fail.\\n"
     fi
 }
 
@@ -137,7 +137,7 @@ create_output_directories()
 
     if [ $verbose -gt 2 ]
     then
-        printf "[DEBUG] top-level output dir: '%s'\n" "$output_dir"
+        printf "[DEBUG] top-level output dir: '%s'\\n" "$output_dir"
     fi
 }
 
@@ -152,28 +152,41 @@ build_command_args()
 
 init_environment()
 {
-    pcf_env_file='/var/vcap/jobs/rabbitmq-server/env'
-    if [ -s "$pcf_env_file" ]
+    # Start PCF / BOSH init
+
+    if [ -s /var/vcap/jobs/rabbitmq-server/env ]
     then
-        # Note: some of the vars exported in this file:
-        #
-        # RUN_DIR=/var/vcap/sys/run/rabbitmq-server
-        # RABBITMQ_PID_FILE="$RUN_DIR/pid"
-        # RABBITMQ_SERVER_PACKAGE=/var/vcap/jobs/rabbitmq-server/packages/rabbitmq-server
-        # RABBITMQ_MNESIA_BASE="/var/vcap/store/rabbitmq-server/mnesia"
-        # RABBITMQ_LOG_BASE=/var/vcap/sys/log/rabbitmq-server
-        # RABBITMQ_CONFIG_FILE=/var/vcap/jobs/rabbitmq-server/rabbitmq
-        # RABBITMQ_ADMIN_USER="admin"
-        # RABBITMQ_ADMIN_PASS="random-string"
-        # RABBITMQ_NODENAME="rabbit@rmq0-rmq-gcp-36"
-        # RABBITMQ_CLUSTER_NAME="rmq-gcp-36"
-        #
-        # Note: sourcing the following also adds $RABBITMQ_SERVER_PACKAGE/sbin to PATH
         # shellcheck source=/dev/null
-        . "$pcf_env_file"
-        RABBITMQ_ENV="$RABBITMQ_SERVER_PACKAGE/sbin/rabbitmq-env"
-        rabbitmq_etc_dir="$RABBITMQ_SERVER_PACKAGE/etc"
+        . /var/vcap/jobs/rabbitmq-server/env
     fi
+
+    if [ -d /var/vcap/packages/rabbitmq-server/bin ]
+    then
+        export PATH="/var/vcap/packages/rabbitmq-server/bin:$PATH"
+    fi
+
+    if [ -d /var/vcap/packages/rabbitmq-server/sbin ]
+    then
+        export PATH="/var/vcap/packages/rabbitmq-server/sbin:$PATH"
+    fi
+
+    if [ -d /var/vcap/packages/erlang/bin ]
+    then
+        export PATH="/var/vcap/packages/erlang/bin:$PATH"
+    fi
+
+    if [ -z "$RABBITMQ_ENV" ] && \
+        [ -f /var/vcap/jobs/rabbitmq-server/packages/rabbitmq-server/privbin/rabbitmq-env ]
+    then
+        RABBITMQ_ENV='/var/vcap/jobs/rabbitmq-server/packages/rabbitmq-server/privbin/rabbitmq-env'
+    fi
+
+    if [ -d /var/vcap/jobs/rabbitmq-server/packages/rabbitmq-server/etc ]
+    then
+        rabbitmq_etc_dir='/var/vcap/jobs/rabbitmq-server/packages/rabbitmq-server/etc'
+    fi
+
+    # End PCF / BOSH init
 
     if [ -z "$RABBITMQ_ENV" ]
     then
@@ -189,7 +202,7 @@ init_environment()
         # shellcheck source=/dev/null
         . "$RABBITMQ_ENV"
     else
-        printf "[WARN] expected to find rabbitmq-env at '%s', but file does not exist.\n" "$RABBITMQ_ENV"
+        printf "[WARN] expected to find rabbitmq-env at '%s', but file does not exist.\\n" "$RABBITMQ_ENV"
     fi
 
     # NB: it is very important to *not* export these as they will screw up
@@ -203,16 +216,22 @@ init_environment()
     fi
     if [ ! -d "$rabbitmq_etc_dir" ]
     then
-        printf "[WARN] expected to find RabbitMQ 'etc' directory at '%s', but directory does not exist.\n" "$rabbitmq_etc_dir"
+        printf "[WARN] expected to find RabbitMQ 'etc' directory at '%s', but directory does not exist.\\n" "$rabbitmq_etc_dir"
     fi
 
     if [ -z "$RABBITMQ_LOG_BASE" ]
     then
-        RABBITMQ_LOG_BASE=/var/log/rabbitmq
+        if [ -d /var/vcap/sys/log/rabbitmq-server ]
+        then
+            RABBITMQ_LOG_BASE=/var/vcap/sys/log/rabbitmq-server
+        elif [ -d /var/log/rabbitmq ]
+        then
+            RABBITMQ_LOG_BASE=/var/log/rabbitmq
+        fi
     fi
     if [ ! -d "$RABBITMQ_LOG_BASE" ]
     then
-        printf "[WARN] expected to find log directory at '%s', but directory does not exist.\n" "$RABBITMQ_LOG_BASE"
+        printf "[WARN] expected to find log directory at '%s', but directory does not exist.\\n" "$RABBITMQ_LOG_BASE"
     fi
 }
 
@@ -234,7 +253,7 @@ collect()
 
     if [ ! -d "$collect_output_dir" ]
     then
-        printf "[ERROR] collect - expected directory '%s' to exist!\n" "$collect_output_dir" 1>&2
+        printf "[ERROR] collect - expected directory '%s' to exist!\\n" "$collect_output_dir" 1>&2
         exit 1
     fi
 
@@ -251,7 +270,7 @@ collect()
     then
         if [ $verbose -gt 1 ]
         then
-            printf "[WARN] command '%s' not found.\n" "$1"
+            printf "[WARN] command '%s' not found.\\n" "$1"
         else
             printf '_'
         fi
@@ -269,7 +288,7 @@ collect()
     # The returned value can be fetched with        `tail -1 .info/$out`.
     if [ $verbose -gt 2 ]
     then
-        printf "[DEBUG] running '%s'\n" "$*"
+        printf "[DEBUG] running '%s'\\n" "$*"
     fi
     echo "$*" > "$collect_output_info_dir/$collect_outfile"
     echo $collect_rv >> "$collect_output_info_dir/$collect_outfile"
@@ -278,14 +297,14 @@ collect()
     then
         if [ $verbose -gt 2 ]
         then
-            printf "[DEBUG] '%s' exit code: %d\n" "$*" "$collect_rv"
+            printf "[DEBUG] '%s' exit code: %d\\n" "$*" "$collect_rv"
         else
             printf '.'
         fi
     else
         if [ $verbose -gt 0 ]
         then
-            printf "[ERROR] command '%s' failed, exit code: %d\n" "$*" "$collect_rv" 1>&2
+            printf "[ERROR] command '%s' failed, exit code: %d\\n" "$*" "$collect_rv" 1>&2
         else
             printf 'E'
         fi
@@ -446,7 +465,7 @@ collect_rabbitmq_info()
         fi
         tar -C "$rabbitmq_etc_dir" -cf - . | tar -C "$rabbitmq_output_etc_dir" -xf -
     else
-        printf "[WARN] '%s' directory not present.\n" "$rabbitmq_etc_dir"
+        printf "[WARN] '%s' directory not present.\\n" "$rabbitmq_etc_dir"
     fi
 
     if [ -d "$RABBITMQ_LOG_BASE" ]
@@ -461,7 +480,7 @@ collect_rabbitmq_info()
         fi
         tar -C "$RABBITMQ_LOG_BASE" -cf - . | tar -C "$rabbitmq_output_logs_dir" -xf -
     else
-        printf "[WARN] '%s' directory not present.\n" "$RABBITMQ_LOG_BASE"
+        printf "[WARN] '%s' directory not present.\\n" "$RABBITMQ_LOG_BASE"
     fi
 
     rabbitmqctl_timeout=120
@@ -510,7 +529,7 @@ build_output_archive()
     fi
     output_archive="$RABBITMQ_LOG_BASE/rabbitmq-env-$hostname-$(date '+%Y%m%d-%H%M%S').tgz"
     tar -C "$output_dir" -zcf "$output_archive" .
-    printf "\n[INFO] output archive: '%s'\n" "$output_archive"
+    printf "\\n[INFO] output archive: '%s'\\n" "$output_archive"
 }
 
 init()
