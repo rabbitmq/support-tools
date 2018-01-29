@@ -31,7 +31,7 @@ sync_queue()
 get_queue_master()
 {
     local -r queue="$1"
-    rabbitmqctl -q -p "$vhost" list_queues name pid | grep -E "^$queue\>" | cut -f2 | sed -e 's/[><]//g' -e 's/\(\.[0-9]\+\)\{3\}//g'
+    rabbitmqctl -q -p "$vhost" list_queues name pid | grep -E "^$queue[[:space:]]" | cut -f2 | sed -e 's/[><]//g' -e 's/\(\.[0-9]\+\)\{3\}//g'
 }
 
 ensure_node_health()
