@@ -58,20 +58,24 @@ set_temp_queue_policies()
 
     ensure_node_health
 
+    local queue_and_pid=''
     local current_master=''
     local new_master=''
     local updated_master=''
     local policy_set_master=''
     local -i count=0
     local -i master_idx=0
-    for queue in $(rabbitmqctl -q -p "$vhost" list_queues name | grep -E "$queue_regex")
+    local -r old_IFS="$IFS"
+
+    IFS=$'\n' for queue_and_pid in $(rabbitmqctl -q -p "$vhost" list_queues name pid | grep -E "$queue_regex")
     do
         if [[ $disable_health_check == 'false' ]]
         then
             ensure_node_health
         fi
 
-        current_master="$(get_queue_master "$queue")"
+        IFS=$'\t' read -r queue pid <<< "$queue_and_pid"
+        current_master=$(sed -e 's/[><]//g' -e 's/\(\.[0-9]\+\)\{3\}//g' <<< "$pid")
         new_master="${nodes[$master_idx]}"
         if [[ $new_master == "$current_master" ]]
         then
@@ -113,6 +117,7 @@ set_temp_queue_policies()
             master_idx=0
         fi
     done
+    IFS="$old_IFS"
 }
 
 validate()
