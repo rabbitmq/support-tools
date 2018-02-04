@@ -6,7 +6,7 @@ set -o nounset
 # defaults
 declare -r default_vhost='/'
 declare -r default_queue_regex='.*'
-declare -ri default_disable_health_check=1
+declare -r default_disable_health_check='false'
 
 # Nothing to modify from here to the end
 declare -a nodes
@@ -66,7 +66,7 @@ set_temp_queue_policies()
     local -i master_idx=0
     for queue in $(rabbitmqctl -q -p "$vhost" list_queues name | grep -E "$queue_regex")
     do
-        if (( "$disable_health_check" == 1 ))
+        if [[ $disable_health_check == 'false' ]]
         then
             ensure_node_health
         fi
@@ -148,7 +148,7 @@ $0 [-p vhost] [-r regex] [-d]
 -r regex    use 'regex' to select queues for which the queue master
             should be migrated. Default is '$default_queue_regex'
 -d          disable checking the node health before applying
-            the queue policies.
+            the queue policies. Default is '$default_disable_health_check'
 EOF
 }
 
@@ -174,7 +174,7 @@ parse_options()
                 ;;
             d)
                 disable_health_check_opt_set='true'
-                declare -gri disable_health_check=0
+                declare -gr disable_health_check='true'
                 ;;
             h)
                 usage
@@ -198,7 +198,7 @@ parse_options()
     fi
     if [[ $disable_health_check_opt_set == 'false' ]]
     then
-        declare -gri disable_health_check="$default_disable_health_check"
+        declare -gr disable_health_check="$default_disable_health_check"
     fi
 }
 
