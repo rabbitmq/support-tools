@@ -3,6 +3,22 @@
 set -o errexit
 set -o nounset
 
+now()
+{
+    date '+%Y%m%d-%H:%M:%S'
+}
+
+errexit()
+{
+    echo "$(now) [ERROR] $*" 1>&2
+    exit 1
+}
+
+if [[ ${BASH_VERSINFO[0]} -lt 4 ]]
+then
+    errexit 'this script requires bash version 4 or greater'
+fi
+
 declare -r orig_IFS="$IFS"
 
 # defaults
@@ -13,17 +29,6 @@ declare -r default_disable_health_check='false'
 # Nothing to modify from here to the end
 declare -a nodes
 declare -i node_count=0
-
-errexit()
-{
-    echo "$(now) [ERROR] $*" 1>&2
-    exit 1
-}
-
-now()
-{
-    date '+%Y%m%d-%H:%M:%S'
-}
 
 sync_queue()
 {
