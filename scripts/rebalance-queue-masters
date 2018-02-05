@@ -3,6 +3,8 @@
 set -o errexit
 set -o nounset
 
+declare -r orig_IFS="$IFS"
+
 # defaults
 declare -r default_vhost='/'
 declare -r default_queue_regex='.*'
@@ -32,7 +34,7 @@ sync_queue()
 get_queue_master()
 {
     local -r queue="$1"
-    rabbitmqctl -q -p "$vhost" list_queues name pid | grep -E "^$queue[[:space:]]" | cut -f2 | sed -e 's/[><]//g' -e 's/\(\.[0-9]\+\)\{3\}//g'
+    rabbitmqctl -q -p "$vhost" list_queues name pid | grep -E "^$queue[[:space:]]" | cut -f2 | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g'
 }
 
 ensure_node_health()
@@ -59,15 +61,17 @@ set_temp_queue_policies()
     ensure_node_health
 
     local queue_and_pid=''
+    local queue=''
+    local pid=''
     local current_master=''
     local new_master=''
     local updated_master=''
     local policy_set_master=''
     local -i count=0
     local -i master_idx=0
-    local -r old_IFS="$IFS"
 
-    IFS=$'\n' for queue_and_pid in $(rabbitmqctl -q -p "$vhost" list_queues name pid | grep -E "$queue_regex")
+    IFS=$'\n'
+    for queue_and_pid in $(rabbitmqctl -q -p "$vhost" list_queues name pid | grep -E "$queue_regex")
     do
         if [[ $disable_health_check == 'false' ]]
         then
@@ -75,7 +79,10 @@ set_temp_queue_policies()
         fi
 
         IFS=$'\t' read -r queue pid <<< "$queue_and_pid"
-        current_master=$(sed -e 's/[><]//g' -e 's/\(\.[0-9]\+\)\{3\}//g' <<< "$pid")
+
+        IFS="$orig_IFS"
+        current_master="$(sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' <<< "$pid")"
+
         new_master="${nodes[$master_idx]}"
         if [[ $new_master == "$current_master" ]]
         then
@@ -94,6 +101,7 @@ set_temp_queue_policies()
             count=0
             while true
             do
+                IFS="$orig_IFS"
                 updated_master="$(get_queue_master "$queue")"
                 if [[ $new_master == "$updated_master" ]]
                 then
@@ -112,12 +120,14 @@ set_temp_queue_policies()
         fi
 
         (( master_idx = master_idx + 1 ))
+
         if (( master_idx == node_count ))
         then
             master_idx=0
         fi
     done
-    IFS="$old_IFS"
+
+    IFS="$orig_IFS"
 }
 
 validate()
