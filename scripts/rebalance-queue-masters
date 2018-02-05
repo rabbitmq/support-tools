@@ -25,6 +25,7 @@ declare -r orig_IFS="$IFS"
 declare -r default_vhost='/'
 declare -r default_queue_regex='.*'
 declare -r default_disable_health_check='false'
+declare -ri default_max_count=60
 
 # Nothing to modify from here to the end
 declare -a nodes
@@ -106,6 +107,12 @@ set_temp_queue_policies()
             count=0
             while true
             do
+                if (( count == max_count ))
+                then
+                    echo "$(now) [WARNING] Queue master not updated for $queue, reached max retries (attemtps: $count). Moving to the next one."
+                    break
+                fi
+
                 IFS="$orig_IFS"
                 updated_master="$(get_queue_master "$queue")"
                 if [[ $new_master == "$updated_master" ]]
@@ -162,13 +169,16 @@ validate()
 usage()
 {
     cat << EOF
-$0 [-p vhost] [-r regex] [-d]
+$0 [-d] [-h] [-c count] [-p vhost] [-r regex]
 
+-d          disable checking the node health before applying
+            the queue policies. Default is '$default_disable_health_check'
+-h          show this help message
+-c count    use max retries for checking if the queue has moved to the new
+            master. Default is ${default_max_count}
 -p vhost    use 'vhost' instead of default '$default_vhost'
 -r regex    use 'regex' to select queues for which the queue master
             should be migrated. Default is '$default_queue_regex'
--d          disable checking the node health before applying
-            the queue policies. Default is '$default_disable_health_check'
 EOF
 }
 
@@ -180,18 +190,11 @@ parse_options()
     local vhost_opt_set='false'
     local queue_regex_opt_set='false'
     local disable_health_check_opt_set='false'
+    local max_count_opt_set='false'
 
-    while getopts ':hp:r:d' opt "$@"
+    while getopts 'dhc:p:r:' opt "$@"
     do
         case "$opt" in
-            p)
-                vhost_opt_set='true'
-                declare -gr vhost="$OPTARG"
-                ;;
-            r)
-                queue_regex_opt_set='true'
-                declare -gr queue_regex="$OPTARG"
-                ;;
             d)
                 disable_health_check_opt_set='true'
                 declare -gr disable_health_check='true'
@@ -199,6 +202,18 @@ parse_options()
             h)
                 usage
                 exit 0
+                ;;
+            c)
+                max_count_opt_set='true'
+                declare -gri max_count="$OPTARG"
+                ;;
+            p)
+                vhost_opt_set='true'
+                declare -gr vhost="$OPTARG"
+                ;;
+            r)
+                queue_regex_opt_set='true'
+                declare -gr queue_regex="$OPTARG"
                 ;;
             *)
                 usage
@@ -219,6 +234,10 @@ parse_options()
     if [[ $disable_health_check_opt_set == 'false' ]]
     then
         declare -gr disable_health_check="$default_disable_health_check"
+    fi
+    if [[ $max_count_opt_set == 'false' ]]
+    then
+        declare -gri max_count=${default_max_count}
     fi
 }
 
