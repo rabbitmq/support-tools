@@ -74,11 +74,31 @@ set_temp_queue_policies()
     local updated_master=''
     local policy_set_master=''
     local -i count=0
-    local -i master_idx=0
 
     IFS=$'\n'
-    for queue_and_pid in $(rabbitmqctl -q -p "$vhost" list_queues name pid | grep -E "$queue_regex")
-    do
+    while true; do
+        nodes_and_masters=$((rabbitmqctl eval 'rabbit_nodes:all_running().' | sed -e "s/[][']//g" -e 's/,/\n/g'; rabbitmqctl -q -p "$vhost" list_queues pid) | grep rabbit | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' | sort | uniq -c | sort -n)
+        num_nodes=$(echo "$nodes_and_masters" | wc -l)
+        max_node=$(echo "$nodes_and_masters" | tail -n 1 | awk '{print $2}')
+        min_node=$(echo "$nodes_and_masters" | head -n 1 | awk '{print $2}')
+        max_node_number=$(echo "$nodes_and_masters" | tail -n 1 | awk '{print $1}')
+        min_node_number=$(echo "$nodes_and_masters" | head -n 1 | awk '{print $1}')
+        max_min_diff=$(( $max_node_number - $min_node_number))
+        # echo "----"
+        echo -e "$(now) [INFO] Current status: \n$nodes_and_masters"
+        # echo "MIN: $min_node ($min_node_number)"
+        # echo "MAX: $max_node ($max_node_number)"
+        # echo "NUM: $num_nodes"
+        # echo "DIFF: $max_min_diff"
+        # echo "----"
+
+        if [[ "$max_min_diff" -le "$num_nodes" ]]; then
+            echo "$(now) [INFO] Already Balanced. Exiting!"
+            exit 0
+        fi
+
+        queue_and_pid=$(rabbitmqctl -q -p "$vhost" list_queues name pid 2>&1 | grep -E "$queue_regex" | grep "$max_node" | head -n 1)
+
         if [[ $disable_health_check == 'false' ]]
         then
             ensure_node_health
@@ -89,7 +109,7 @@ set_temp_queue_policies()
         IFS="$orig_IFS"
         current_master="$(sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' <<< "$pid")"
 
-        new_master="${nodes[$master_idx]}"
+        new_master="$min_node"
         if [[ $new_master == "$current_master" ]]
         then
             echo "$(now) [INFO] Not updating current queue master '$current_master' for queue '$queue'"
@@ -131,12 +151,6 @@ set_temp_queue_policies()
             sync_queue "$queue"
         fi
 
-        (( master_idx = master_idx + 1 ))
-
-        if (( master_idx == node_count ))
-        then
-            master_idx=0
-        fi
     done
 
     IFS="$orig_IFS"
