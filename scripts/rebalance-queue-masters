@@ -19,6 +19,8 @@ then
     errexit 'this script requires bash version 4 or greater'
 fi
 
+declare -r debug='false'
+
 declare -r orig_IFS="$IFS"
 
 # defaults
@@ -40,6 +42,7 @@ sync_queue()
 get_queue_master()
 {
     local -r queue="$1"
+    # shellcheck disable=SC1087
     rabbitmqctl -q -p "$vhost" list_queues name pid | grep -E "^$queue[[:space:]]" | cut -f2 | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g'
 }
 
@@ -66,59 +69,122 @@ set_temp_queue_policies()
 
     ensure_node_health
 
-    local queue_and_pid=''
-    local queue=''
-    local pid=''
-    local current_master=''
-    local new_master=''
-    local updated_master=''
-    local policy_set_master=''
-    local -i count=0
+    while true
+    do
+        local node=''
+        local tmp=''
+        local -i num_nodes=0
+        unset node_list
+        unset node_master_count
+        local -A node_list
+        local -A node_master_count
 
-    IFS=$'\n'
-    while true; do
         # List of nodes
-        node_list=$(rabbitmqctl eval 'rabbit_nodes:all_running().' | sed -e "s/[][']//g" | tr ',' '\n')
+        IFS=','
+        for tmp in $(rabbitmqctl eval 'rabbit_nodes:all_running().' | sed -e "s/[][']//g")
+        do
+            node_list[$tmp]=1
+            node_master_count[$tmp]=0
+            (( num_nodes = num_nodes + 1 ))
+        done
+        IFS="$orig_IFS"
+
+        if [[ $debug == 'true' ]]
+        then
+            echo "$(now) [DEBUG] node_list: ${!node_list[*]}"
+            for K in "${!node_list[@]}"
+            do
+                echo "$K --- ${node_list[$K]}"
+            done
+        fi
 
         # List of masters extracted from node_list + list_queues masters.
-        nodes_and_masters=$((echo "$node_list"; rabbitmqctl -q -p "$vhost" list_queues pid) | grep rabbit | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' | sort | uniq -c | sort -n)
+        IFS=$'\n'
+        for tmp in $(rabbitmqctl -sqp "$vhost" list_queues pid | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' | uniq -c )
+        do
+            IFS="$orig_IFS"
+            # shellcheck disable=SC2086
+            set -- $tmp
 
-        # Number of nodes in cluster
-        num_nodes=$(echo "$nodes_and_masters" | wc -l)
+            if [[ $debug == 'true' ]]
+            then
+                echo "$(now) [DEBUG] evaluating node_master_count[$2]=$1"
+            fi
 
-        # Node with more queue masters, and number of masters
-        max_node=$(echo "$nodes_and_masters" | tail -n 1 | awk '{print $2}')
-        max_node_number=$(echo "$nodes_and_masters" | tail -n 1 | awk '{print $1}')
+            node_master_count[$2]="$1"
+            IFS=$'\n'
+        done
+        IFS="$orig_IFS"
 
-        # Node with less queue masters, and number of masters
-        min_node=$(echo "$nodes_and_masters" | head -n 1 | awk '{print $2}')
-        min_node_number=$(echo "$nodes_and_masters" | head -n 1 | awk '{print $1}')
+        if [[ $debug == 'true' ]]
+        then
+            echo "$(now) [DEBUG] node_master_count: ${!node_master_count[*]}"
+            for K in "${!node_master_count[@]}"
+            do
+                echo "$K --- ${node_master_count[$K]}"
+            done
+        fi
+
+        node=''
+        local first_iteration='true'
+        local -i node_queue_count=0
+        local node_with_most_queues=''
+        local -i node_with_most_queues_count=0
+        local node_with_fewest_queues=''
+        local -i node_with_fewest_queues_count=0
+
+        for node in "${!node_master_count[@]}"
+        do
+            node_queue_count="${node_master_count[$node]}"
+
+            if [[ $first_iteration == 'true' ]]
+            then
+                first_iteration='false'
+                node_with_most_queues="$node"
+                node_with_most_queues_count="$node_queue_count"
+                node_with_fewest_queues="$node"
+                node_with_fewest_queues_count="$node_queue_count"
+            else
+                if (( node_queue_count > node_with_most_queues_count ))
+                then
+                    node_with_most_queues="$node"
+                    node_with_most_queues_count="$node_queue_count"
+                fi
+                if (( node_queue_count < node_with_fewest_queues_count ))
+                then
+                    node_with_fewest_queues="$node"
+                    node_with_fewest_queues_count="$node_queue_count"
+                fi
+            fi
+        done
 
         # Diff between max and min
-        max_min_diff=$(( $max_node_number - $min_node_number))
-
-        echo -e "$(now) [INFO] Current status: \n$nodes_and_masters"
+        local -i diff="$((node_with_most_queues_count - node_with_fewest_queues_count))"
 
         # Exit if max-min diff is less than number of nodes
-        if [[ "$max_min_diff" -le "$num_nodes" ]]; then
+        if (( diff <= num_nodes ))
+        then
             echo "$(now) [INFO] Already Balanced. Exiting!"
             exit 0
         fi
 
         # Get one queue with master in the node with more masters (max node)
-        queue_and_pid=$(rabbitmqctl -q -p "$vhost" list_queues name pid 2>&1 | grep -E "$queue_regex" | grep "$max_node" | head -n 1)
+        local queue_and_pid=''
+        queue_and_pid="$(rabbitmqctl -q -p "$vhost" list_queues name pid 2>&1 | grep -E "$queue_regex" | grep "$node_with_most_queues" | head -n 1)"
 
         if [[ $disable_health_check == 'false' ]]
         then
             ensure_node_health
         fi
 
+        local queue=''
+        local pid=''
         IFS=$'\t' read -r queue pid <<< "$queue_and_pid"
 
         IFS="$orig_IFS"
+        local current_master=''
         current_master="$(sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' <<< "$pid")"
-
-        new_master="$min_node"
+        local new_master="$node_with_fewest_queues"
 
         # Move queue master to other node (if so)
         if [[ $new_master == "$current_master" ]]
@@ -130,12 +196,12 @@ set_temp_queue_policies()
             rabbitmqctl set_policy -p "$vhost" --priority 990 --apply-to 'queues' "$queue-ha-temp" "^$queue$" '{"ha-mode":"exactly","ha-params":1}'
             sync_queue "$queue"
 
-            policy_set_master="{\"ha-mode\":\"nodes\",\"ha-params\":[\"$new_master\"]}"
+            local policy_set_master="{\"ha-mode\":\"nodes\",\"ha-params\":[\"$new_master\"]}"
             echo -n "$(now) [INFO] "
             rabbitmqctl set_policy -p "$vhost" --priority 992 --apply-to 'queues' "$queue-ha-temp" "^$queue$" "$policy_set_master"
             sync_queue "$queue"
 
-            count=0
+            local -i count=0
             while true
             do
                 if (( count == max_count ))
@@ -145,6 +211,7 @@ set_temp_queue_policies()
                 fi
 
                 IFS="$orig_IFS"
+                local updated_master=''
                 updated_master="$(get_queue_master "$queue")"
                 if [[ $new_master == "$updated_master" ]]
                 then
