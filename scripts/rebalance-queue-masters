@@ -77,26 +77,35 @@ set_temp_queue_policies()
 
     IFS=$'\n'
     while true; do
-        nodes_and_masters=$((rabbitmqctl eval 'rabbit_nodes:all_running().' | sed -e "s/[][']//g" | tr ',' '\n'; rabbitmqctl -q -p "$vhost" list_queues pid) | grep rabbit | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' | sort | uniq -c | sort -n)
-        num_nodes=$(echo "$nodes_and_masters" | wc -l)
-        max_node=$(echo "$nodes_and_masters" | tail -n 1 | awk '{print $2}')
-        min_node=$(echo "$nodes_and_masters" | head -n 1 | awk '{print $2}')
-        max_node_number=$(echo "$nodes_and_masters" | tail -n 1 | awk '{print $1}')
-        min_node_number=$(echo "$nodes_and_masters" | head -n 1 | awk '{print $1}')
-        max_min_diff=$(( $max_node_number - $min_node_number))
-        # echo "----"
-        echo -e "$(now) [INFO] Current status: \n$nodes_and_masters"
-        # echo "MIN: $min_node ($min_node_number)"
-        # echo "MAX: $max_node ($max_node_number)"
-        # echo "NUM: $num_nodes"
-        # echo "DIFF: $max_min_diff"
-        # echo "----"
+        # List of nodes
+        node_list=$(rabbitmqctl eval 'rabbit_nodes:all_running().' | sed -e "s/[][']//g" | tr ',' '\n')
 
+        # List of masters extracted from node_list + list_queues masters.
+        nodes_and_masters=$((echo "$node_list"; rabbitmqctl -q -p "$vhost" list_queues pid) | grep rabbit | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' | sort | uniq -c | sort -n)
+
+        # Number of nodes in cluster
+        num_nodes=$(echo "$nodes_and_masters" | wc -l)
+
+        # Node with more queue masters, and number of masters
+        max_node=$(echo "$nodes_and_masters" | tail -n 1 | awk '{print $2}')
+        max_node_number=$(echo "$nodes_and_masters" | tail -n 1 | awk '{print $1}')
+
+        # Node with less queue masters, and number of masters
+        min_node=$(echo "$nodes_and_masters" | head -n 1 | awk '{print $2}')
+        min_node_number=$(echo "$nodes_and_masters" | head -n 1 | awk '{print $1}')
+
+        # Diff between max and min
+        max_min_diff=$(( $max_node_number - $min_node_number))
+
+        echo -e "$(now) [INFO] Current status: \n$nodes_and_masters"
+
+        # Exit if max-min diff is less than number of nodes
         if [[ "$max_min_diff" -le "$num_nodes" ]]; then
             echo "$(now) [INFO] Already Balanced. Exiting!"
             exit 0
         fi
 
+        # Get one queue with master in the node with more masters (max node)
         queue_and_pid=$(rabbitmqctl -q -p "$vhost" list_queues name pid 2>&1 | grep -E "$queue_regex" | grep "$max_node" | head -n 1)
 
         if [[ $disable_health_check == 'false' ]]
@@ -110,6 +119,8 @@ set_temp_queue_policies()
         current_master="$(sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' <<< "$pid")"
 
         new_master="$min_node"
+
+        # Move queue master to other node (if so)
         if [[ $new_master == "$current_master" ]]
         then
             echo "$(now) [INFO] Not updating current queue master '$current_master' for queue '$queue'"
