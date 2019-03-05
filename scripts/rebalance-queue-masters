@@ -100,7 +100,7 @@ set_temp_queue_policies()
 
         # List of masters extracted from node_list + list_queues masters.
         IFS=$'\n'
-        for tmp in $(rabbitmqctl -sqp "$vhost" list_queues pid | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' | uniq -c )
+        for tmp in $(echo "${!node_list[*]}" | uniq -c) $(rabbitmqctl -q -p "$vhost" list_queues pid | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' | uniq -c )
         do
             IFS="$orig_IFS"
             # shellcheck disable=SC2086
@@ -108,10 +108,11 @@ set_temp_queue_policies()
 
             if [[ $debug == 'true' ]]
             then
-                echo "$(now) [DEBUG] evaluating node_master_count[$2]=$1"
+                echo "$(now) [DEBUG] evaluating node_master_count[$2] = ${node_master_count[$2]} + $1"
             fi
 
-            node_master_count[$2]="$1"
+            (( node_master_count[$2] = node_master_count[$2] + $1 ))
+            
             IFS=$'\n'
         done
         IFS="$orig_IFS"
