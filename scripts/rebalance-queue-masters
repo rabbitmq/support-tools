@@ -100,7 +100,7 @@ set_temp_queue_policies()
 
         # List of masters extracted from node_list + list_queues masters.
         IFS=$'\n'
-        for tmp in $(rabbitmqctl -sqp "$vhost" list_queues pid | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' | uniq -c )
+        for tmp in $(rabbitmqctl -q -p "$vhost" list_queues pid 2>&1 | grep -vE '^pid' | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' | sort | uniq -c)
         do
             IFS="$orig_IFS"
             # shellcheck disable=SC2086
@@ -244,12 +244,14 @@ validate()
         fi
     done
 
+    IFS=','
     local -i i=0
-    for node in $(rabbitmqctl eval 'rabbit_nodes:all_running().' | sed -e "s/[][']//g" -e 's/,/ /g')
+    for node in $(rabbitmqctl eval 'rabbit_nodes:all_running().' | sed -e "s/[][']//g")
     do
         nodes[$i]="$node"
         (( i = i + 1 ))
     done
+    IFS="$orig_IFS"
 
     node_count="${#nodes[@]}"
     if (( node_count < 2 ))
