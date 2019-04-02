@@ -81,7 +81,7 @@ set_temp_queue_policies()
 
         # List of nodes
         IFS=','
-        for tmp in $(rabbitmqctl eval 'rabbit_nodes:all_running().' | sed -e "s/[][']//g")
+        for tmp in $(rabbitmqctl eval 'rabbit_nodes:all_running().' | tr -d '\n ' | sed -e "s/[][']//g")
         do
             node_list[$tmp]=1
             node_master_count[$tmp]=0
@@ -246,7 +246,7 @@ validate()
 
     IFS=','
     local -i i=0
-    for node in $(rabbitmqctl eval 'rabbit_nodes:all_running().' | sed -e "s/[][']//g")
+    for node in $(rabbitmqctl eval 'rabbit_nodes:all_running().' | tr -d '\n ' | sed -e "s/[][']//g")
     do
         nodes[$i]="$node"
         (( i = i + 1 ))
