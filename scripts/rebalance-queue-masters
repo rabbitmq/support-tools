@@ -132,13 +132,13 @@ set_temp_queue_policies()
         local -i node_with_most_queues_count=0
         local node_with_fewest_queues=''
         local -i node_with_fewest_queues_count=0
-        local total_queue_count=''
         local -i total_queue_count=0
+        local -i max_queues_desired_per_host=0
 
         for node in "${!node_master_count[@]}"
         do
             node_queue_count="${node_master_count[$node]}"
-            total_queue_count+="$node_queue_count"
+            (( total_queue_count += node_queue_count ))
 
             if [[ $first_iteration == 'true' ]]
             then
@@ -162,7 +162,7 @@ set_temp_queue_policies()
         done
 
         # upper bound for queues per host: total number of queues divided by number of hosts round up
-        local -i max_queues_desired_per_host="$(((total_queue_count / num_nodes) + (total_queue_count % num_nodes > 0)))"
+        max_queues_desired_per_host="$(((total_queue_count / num_nodes) + (total_queue_count % num_nodes > 0)))"
 
         if (( node_with_most_queues_count <= max_queues_desired_per_host ))
         then
