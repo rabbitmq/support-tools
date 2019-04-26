@@ -138,7 +138,7 @@ set_temp_queue_policies()
         for node in "${!node_master_count[@]}"
         do
             node_queue_count="${node_master_count[$node]}"
-            (( total_queue_count += node_queue_count ))
+            total_queue_count="$((total_queue_count + node_queue_count))"
 
             if [[ $first_iteration == 'true' ]]
             then
