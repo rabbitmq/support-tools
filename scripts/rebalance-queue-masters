@@ -43,7 +43,7 @@ get_queue_master()
 {
     local -r queue="$1"
     # shellcheck disable=SC1087
-    rabbitmqctl -q -p "$vhost" list_queues name pid | grep -E "^$queue[[:space:]]" | cut -f2 | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g'
+    rabbitmqctl -q -p "$vhost" list_queues name pid | grep -E "^$queue[[:space:]]" | cut -f2 | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}$//g'
 }
 
 ensure_node_health()
@@ -100,7 +100,7 @@ set_temp_queue_policies()
 
         # List of masters extracted from node_list + list_queues masters.
         IFS=$'\n'
-        for tmp in $(rabbitmqctl -q -p "$vhost" list_queues pid 2>&1 | grep -vE '^pid' | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' | sort | uniq -c)
+        for tmp in $(rabbitmqctl -q -p "$vhost" list_queues pid 2>&1 | grep -vE '^pid' | sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}$//g' | sort | uniq -c)
         do
             IFS="$orig_IFS"
             # shellcheck disable=SC2086
@@ -185,7 +185,7 @@ set_temp_queue_policies()
 
         IFS="$orig_IFS"
         local current_master=''
-        current_master="$(sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}//g' <<< "$pid")"
+        current_master="$(sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}$//g' <<< "$pid")"
         local new_master="$node_with_fewest_queues"
 
         # Move queue master to other node (if so)
