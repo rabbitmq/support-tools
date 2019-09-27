@@ -16,6 +16,6 @@ or cannot ship with RabbitMQ for any other reason:
 
 ## Copyright & License
 
-(c) Pivotal Software, Inc. 2007-2017.
+(c) Pivotal Software, Inc. 2007-2019.
 
 See LICENSE.
