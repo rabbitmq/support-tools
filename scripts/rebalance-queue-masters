@@ -183,7 +183,9 @@ set_temp_queue_policies()
         local pid=''
         IFS=$'\t' read -r queue pid <<< "$queue_and_pid"
 
-        local current_queue_regex="$(printf '%s' "$queue" | sed 's/[.[\*^$()+?{|]/\\&/g')"
+        local current_queue_regex=''
+        # shellcheck disable=SC2001,SC2016
+        current_queue_regex="$(sed -e 's/[.[\*^$()+?{|]/\\&/g' <<< "$queue")"
 
         IFS="$orig_IFS"
         local current_master=''
