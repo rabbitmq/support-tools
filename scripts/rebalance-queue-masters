@@ -183,6 +183,8 @@ set_temp_queue_policies()
         local pid=''
         IFS=$'\t' read -r queue pid <<< "$queue_and_pid"
 
+        local current_queue_regex="$(printf '%s' "$queue" | sed 's/[.[\*^$()+?{|]/\\&/g')"
+
         IFS="$orig_IFS"
         local current_master=''
         current_master="$(sed -e 's/[><]//g' -e 's/\(\.[[:digit:]][[:digit:]]*\)\{3\}$//g' <<< "$pid")"
@@ -195,12 +197,12 @@ set_temp_queue_policies()
         else
             echo "$(now) [INFO] Updating queue master for queue '$queue' from '$current_master' to '$new_master'"
             echo -n "$(now) [INFO] "
-            rabbitmqctl set_policy -p "$vhost" --priority 990 --apply-to 'queues' "$queue-ha-temp" "^$queue$" '{"ha-mode":"exactly","ha-params":1}'
+            rabbitmqctl set_policy -p "$vhost" --priority 990 --apply-to 'queues' "$queue-ha-temp" "^$current_queue_regex$" '{"ha-mode":"exactly","ha-params":1}'
             sync_queue "$queue"
 
             local policy_set_master="{\"ha-mode\":\"nodes\",\"ha-params\":[\"$new_master\"]}"
             echo -n "$(now) [INFO] "
-            rabbitmqctl set_policy -p "$vhost" --priority 992 --apply-to 'queues' "$queue-ha-temp" "^$queue$" "$policy_set_master"
+            rabbitmqctl set_policy -p "$vhost" --priority 992 --apply-to 'queues' "$queue-ha-temp" "^$current_queue_regex$" "$policy_set_master"
             sync_queue "$queue"
 
             local -i count=0
@@ -214,7 +216,7 @@ set_temp_queue_policies()
 
                 IFS="$orig_IFS"
                 local updated_master=''
-                updated_master="$(get_queue_master "$queue")"
+                updated_master="$(get_queue_master "$current_queue_regex")"
                 if [[ $new_master == "$updated_master" ]]
                 then
                     echo "$(now) [INFO] Queue master successfully updated: '$updated_master'"
