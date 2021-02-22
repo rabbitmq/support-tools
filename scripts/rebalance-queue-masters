@@ -26,6 +26,7 @@ declare -r orig_IFS="$IFS"
 # defaults
 declare -r default_vhost='/'
 declare -r default_queue_regex='.*'
+declare -r default_queue_exclude_regex='^$'
 declare -r default_disable_health_check='false'
 declare -ri default_max_count=60
 
@@ -172,7 +173,7 @@ set_temp_queue_policies()
 
         # Get one queue with master in the node with more masters (max node)
         local queue_and_pid=''
-        queue_and_pid="$(rabbitmqctl -q -p "$vhost" list_queues name pid 2>&1 | grep -E "$queue_regex" | grep "$node_with_most_queues" | head -n 1)"
+        queue_and_pid="$(rabbitmqctl -q -p "$vhost" list_queues name pid 2>&1 | grep -E "$queue_regex"|grep -v -E "$queue_exclude_regex" | grep "$node_with_most_queues" | head -n 1)"
 
         if [[ $disable_health_check == 'false' ]]
         then
@@ -292,7 +293,7 @@ parse_options()
     local disable_health_check_opt_set='false'
     local max_count_opt_set='false'
 
-    while getopts 'dhc:p:r:' opt "$@"
+    while getopts 'dhc:p:r:x:' opt "$@"
     do
         case "$opt" in
             d)
@@ -311,6 +312,10 @@ parse_options()
                 vhost_opt_set='true'
                 declare -gr vhost="$OPTARG"
                 ;;
+            x)
+                queue_exclude_regex_opt_set='true'
+                declare -gr queue_exclude_regex="$OPTARG"
+                ;;
             r)
                 queue_regex_opt_set='true'
                 declare -gr queue_regex="$OPTARG"
@@ -326,6 +331,10 @@ parse_options()
     if [[ $vhost_opt_set == 'false' ]]
     then
         declare -gr vhost="$default_vhost"
+    fi
+    if [[ $queue_exclude_regex_opt_set == 'false' ]]
+    then
+        declare -gr queue_exclude_regex="$default_queue_exclude_regex"
     fi
     if [[ $queue_regex_opt_set == 'false' ]]
     then
