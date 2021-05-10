@@ -292,6 +292,7 @@ parse_options()
     local queue_regex_opt_set='false'
     local disable_health_check_opt_set='false'
     local max_count_opt_set='false'
+    local queue_exclude_regex_opt_set='false'
 
     while getopts 'dhc:p:r:x:' opt "$@"
     do
