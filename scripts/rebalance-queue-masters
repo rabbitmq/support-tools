@@ -79,6 +79,7 @@ set_temp_queue_policies()
         unset node_master_count
         local -A node_list
         local -A node_master_count
+        local ha_policy_regex=''
 
         # List of nodes
         IFS=','
@@ -115,6 +116,22 @@ set_temp_queue_policies()
             node_master_count[$2]="$1"
             IFS=$'\n'
         done
+
+        # Find polices that have mirroring enabled.
+        IFS=$'\n'
+        for tmp in $(rabbitmqctl -p "$vhost" list_policies | grep 'ha-mode')
+        do
+            IFS="$orig_IFS"
+            set -- $tmp
+            if [[ -z $ha_policy_regex ]]
+            then
+                ha_policy_regex="$2"
+            else
+                ha_policy_regex="$ha_policy_regex|$2"
+            fi
+            IFS=$'\n'
+        done
+        ha_policy_regex="\b($ha_policy_regex)\b"
         IFS="$orig_IFS"
 
         if [[ $debug == 'true' ]]
@@ -171,9 +188,15 @@ set_temp_queue_policies()
             exit 0
         fi
 
-        # Get one queue with master in the node with more masters (max node)
+        # Get one queue with master in the node with more masters (max
+        # node) with a mirrored policy.
         local queue_and_pid=''
-        queue_and_pid="$(rabbitmqctl -q -p "$vhost" list_queues name pid 2>&1 | grep -E "$queue_regex"|grep -v -E "$queue_exclude_regex" | grep "$node_with_most_queues" | head -n 1)"
+        queue_and_pid="$(rabbitmqctl -q -p "$vhost" list_queues name pid policy 2>&1 \
+            | grep -E "$ha_policy_regex" \
+            | grep -E "$queue_regex" \
+            | grep -v -E "$queue_exclude_regex" \
+            | grep "$node_with_most_queues" \
+            | head -n 1)"
 
         if [[ $disable_health_check == 'false' ]]
         then
@@ -182,7 +205,8 @@ set_temp_queue_policies()
 
         local queue=''
         local pid=''
-        IFS=$'\t' read -r queue pid <<< "$queue_and_pid"
+        local policy=''
+        IFS=$'\t' read -r queue pid policy <<< "$queue_and_pid"
 
         local current_queue_regex=''
         # shellcheck disable=SC2001,SC2016
