@@ -455,15 +455,29 @@ collect_rabbitmq_info()
 
     if [ -d "$rabbitmq_etc_dir" ]
     then
-        rabbitmq_output_etc_dir="$rabbitmq_output_dir/etc"
+        readonly rabbitmq_output_etc_dir="$rabbitmq_output_dir/etc"
         mkdir_or_die "$rabbitmq_output_etc_dir"
+        # gh-31
+        # Rather than copying everything in /etc/rabbitmq, only copy *.conf* files and enabled_plugins
         if [ $verbose -gt 2 ]
         then
-            echo "[DEBUG] running command 'tar -C \"$rabbitmq_etc_dir\" -cf - | tar -C \"$rabbitmq_output_etc_dir\" -xf -'"
+            echo "[DEBUG] running command 'cp -f \"$rabbitmq_etc_dir/*.conf*\" \"$rabbitmq_output_etc_dir\""
         else
             printf '.'
         fi
-        tar -C "$rabbitmq_etc_dir" -cf - . | tar -C "$rabbitmq_output_etc_dir" -xf -
+        cp -f "$rabbitmq_etc_dir"/*.conf* "$rabbitmq_output_etc_dir"
+
+        readonly rabbitmq_enabled_plugins_file="$rabbitmq_etc_dir/enabled_plugins"
+        if [ -f "$rabbitmq_enabled_plugins_file" ]
+        then
+            if [ $verbose -gt 2 ]
+            then
+                echo "[DEBUG] running command 'cp -f \"$rabbitmq_enabled_plugins_file\" \"$rabbitmq_output_etc_dir\""
+            else
+                printf '.'
+            fi
+            cp -f "$rabbitmq_enabled_plugins_file" "$rabbitmq_output_etc_dir"
+        fi
     else
         printf "[WARN] '%s' directory not present.\\n" "$rabbitmq_etc_dir"
     fi
