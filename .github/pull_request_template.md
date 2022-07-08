@@ -8,7 +8,7 @@ For example, for the question: **How blocking is this documentation?:** The acce
 
 **How blocking is this documentation?:** Very/Somewhat/Not at all
 
-**Is there a customer waiting on this change?:** Y/N
+**Is there a user waiting on this change?:** Y/N
 
 **Roughly how urgently is this documentation needed:** ASAP/This Week/This Month/At some point
 
