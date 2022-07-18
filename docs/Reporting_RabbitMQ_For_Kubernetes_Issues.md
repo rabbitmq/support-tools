@@ -44,9 +44,10 @@ If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu Rab
 
 9. **Provide a detailed description of the scenario causing the issue by answering the following questions:**
   *  Is an issue happening during installation or upgrade of the product or running a scenario on a correctly deployed RabbitMQ cluster?
-  *  Is the issue happening with a specific scenario such as standby replication, MQTT, STOMP? If the answer is yes, please see the next question.
-  *  Can the issue still be reproduced with this specific? If the answer is yes, provide as much detail as possible about this scenario including any logs.
+  *  Is the issue happening with a specific scenario such as standby replication, MQTT, STOMP? If the answer is yes, please see the next question otherwise skip the next question.
+  *  Can the issue still be reproduced with this specific scenario? If the answer is yes, provide as much detail as possible about this scenario including any logs.
   *  Is the issue impacting a specific Kubernetes Operator (Cluster Operator, Message Topology Operator, and Standby Replication Operator) or is the issue impacting RabbitMQ core functionality?
+     
      To retrieve useful informations about the Kubernetes cluster that is deployed such as the number of nodes, the total number of cores, memory usage, the network (Calico, CNI, or others), and the storage classes that are in use, run the following commands:
   ```
   kubectl get nodes 
