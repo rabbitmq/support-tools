@@ -1,33 +1,42 @@
-# Tanzu-RabbitMQ-Kubernetes-diagnostic-runbook
+# Data Collection Form for Tanzu RabbitMQ for Kubernetes Issues that Require Further Investigation/Escalation
 
-This doc is intended to be used by our support team in order to collect the minimum amount of informations needed to open a ticket to R&D for Tanzu RabbitMQ for Kubernetes in case of escalations.
+If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu RabbitMQ for Kubernetes Research and Development team for further investigation and resolution, please answer the questions in this form and submit these answers in the ticket that you are opening for research and development.
 
-This is intended to be just the minimum necessary informations as some of the requests may depend on the type of scenario and issues encountered and we can't really make a standard procedure for this.
+## The Research and Development Team Need the Following Information to Work on the Issue:
 
-## The minimum set of informations to start with
-
-* The type of product been used:
-  * Commercial
-  * Open source  
-* The version of the product been used: 
-  * Commercial: The Tanzu RabbitMQ version used (1.1,1.2,1.3 ecc...). </br>
-    You can use this command: 
+1. **What type of product?**
+   * Commercial
+   * Open source  
+   
+2. **What is the product version?**
+  * Commercial: What is the Tanzu RabbitMQ for Kubernetes version? The product versions currently in use are: 1.0, 1.1, 1.2, and 1.3. There will be future versions. 
+    Run the following command to get the product version: </br>
+    
     ```  
     kubectl get PackageInstall tanzu-rabbitmq -o yaml -n rabbitmq-system | grep "version:" 
     ```
-  * Open source: The version of the operators and RabbitMQ images used. </br>
-    You can use the commands like: 
+  * Open source: What are the operator versions and RabbitMQ images being used?  </br>
+    
+    Run the following commands to get the operator versions and RabbitMQ images being used: 
     ```
     kubectl get deployment rabbitmq-cluster-operator -n rabbitmq-system -o yaml | grep " image:" 
     kubectl get deployment messaging-topology-operator -n rabbitmq-system -o yaml | grep " image:" 
     kubectl get rabbitmqcluster.rabbitmq.com hello-world -n rabbit-cluster -o yaml | grep " image:"  
     ```
-* The Kubernetes distribution been used: TKG, GKE, AKS, EKS, Openshift, Anthos ecc...
-* The Kubernetes version been used. You can use:
-  ```
-  kubectl version
-  ``` 
-*  If the issue is related to an Installation/Upgrade procedure: See section "Specific issues during Installation/Upgrade of the commercial version" below
+3. **What is the The Kubernetes distribution?**
+   Possible options are: TKG, GKE, AKS, EKS, Openshift, Anthos etc
+   
+5. **What is the Kubernetes version?**
+   Run the following command to get the Kubernetes version: 
+   
+   ```
+   kubectl version
+   ``` 
+6. **Is the issue is related to an Installation/Upgrade procedure?**
+   If so, see "Specific issues during Installation/Upgrade of the commercial version" below. 
+
+7. 
+*  
 *  If available informations about the deployed operators objects status, description and logs: See section "Operator Informations" below
 *  If available informations about the RabbitMQ cluster objects status, description and logs: See section "RabbitMQ server information" below
 
