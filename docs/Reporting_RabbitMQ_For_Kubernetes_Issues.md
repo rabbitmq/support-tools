@@ -4,7 +4,7 @@ If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu Rab
 
 ## The Research and Development Team Need the Following Information to Work on the Issue:
 
-1. **What type of product?**
+1. **What is the product type?**
    * Commercial
    * Open source  
    
@@ -32,35 +32,34 @@ If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu Rab
    ```
    kubectl version
    ``` 
-6. **Is the issue is related to an Installation/Upgrade procedure?**
-   If so, see [Specific Issues during the Installation or Upgrade of the Commercial Tanzu RabbitMQ for Kubernetes Product](#issues-during-install-upgrade). 
+   
+6. **Is the issue related to the installation or upgrade of the product?**
+   To investigate and provide further information, see [Specific Issues during the Installation or Upgrade of the Commercial Tanzu RabbitMQ for Kubernetes  Product](#issues-during-install-upgrade). 
 
-7. 
-*  
-*  If available informations about the deployed operators objects status, description and logs: See section "Operator Informations" below
-*  If available informations about the RabbitMQ cluster objects status, description and logs: See section "RabbitMQ server information" below
+7. **Is the issue related to the deployed operators?**
+*  To investigate and provide further information (status, description and logs) about the deployed operators, see [Retrieving Information about the Deployed Operators](#retrieve-operator-details).
 
-* Detailed description of the scenario causing the issue:
-  *  Is an issue happening during installation/upgrade of the product or running a scenario on a correctly deployed RabbitMQ cluster?
-  *  Is the issue happening with a specific scenario: Ex. (standby replication, MQTT, STOMP ecc..)? And is it still reproducible with it? If yes to describe the scenario
-  *  Is the issue impacting a specific Kubernetes operator / commercial functionality? (Cluster operator, Mesagging topology operator, Standby operator) or is about a RabbitMQ core functionality?
-     
-* Some informations about the Kubernetes cluster deployed: Number of nodes, total cores, memory, Network used Calico, CNI, ecc... Storage classes defined and used ecc..
-  Commands like this can be useful:
+8. **Is the issue related to the RabbitMQ cluster object(s)?**
+*  To investigate and provide further information (status, description and logs) about the RabbitMQ cluster object(s), see [Retrieving Information about the RabbitMQ Cluster](#retrieve-cluster-information).
+
+9. **Provide a detailed description of the scenario causing the issue by answering the following questions:**
+  *  Is an issue happening during installation or upgrade of the product or running a scenario on a correctly deployed RabbitMQ cluster?
+  *  Is the issue happening with a specific scenario such as standby replication, MQTT, STOMP? If the answer is yes, please see the next question.
+  *  Can the issue still be reproduced with this specific? If the answer is yes, provide as much detail as possible about this scenario including any logs.
+  *  Is the issue impacting a specific Kubernetes Operator (Cluster Operator, Message Topology Operator, and Standby Replication Operator) or is the issue impacting RabbitMQ core functionality?
+     To retrieve useful informations about the Kubernetes cluster that is deployed such as the number of nodes, the total number of cores, memory usage, the network (Calico, CNI, or others), and the storage classes that are in use, run the following commands:
   ```
   kubectl get nodes 
   kubectl describe nodes 
   kubectl get pv
   kubectl get storageclasses 
   ```
-## Specific Issues during the Installation or Upgrade of the Commercial Tanzu RabbitMQ for Kubernetes Product
+
 ## <a id="issues-during-install-upgrade" class="anchor" href="issues-during-install-upgrade">Specific issues during the Installation or Upgrade of the Commercial Tanzu RabbitMQ for Kubernetes Version</a>
 
-This section concerns problems related to installation/update
-Tanzu RabbitMQ is installed through the Carvel toolchain.</br>
-https://docs.vmware.com/en/VMware-Tanzu-RabbitMQ-for-Kubernetes/1.3/tanzu-rmq/GUID-installation.html
+If the issue is related to the [installation or upgrade of the Tanzu RabbitMQ for Kubernetes commercial product using the Carvel toolchain](https://docs.vmware.com/en/VMware-Tanzu-RabbitMQ-for-Kubernetes/1.3/tanzu-rmq/GUID-installation.html), check the following:
 
-### Prerequisites to check:
+### Prerequisites to Check:
 
 * Versions of the tanzu cluster essential been installed or of the kapp and secretgen controllers. Also cert-manager is necessary so the version of cert-manager used in the Kubernetes cluster.
   You can get the info from the deployment of the kapp, secretgen and cert-manager namespaces like:
@@ -94,7 +93,7 @@ https://docs.vmware.com/en/VMware-Tanzu-RabbitMQ-for-Kubernetes/1.3/tanzu-rmq/GU
 
 If prerequisites are ok we can continue with the Operator and RabbitMQ server information
 
-## Operator informations
+## <a id="retrieve-operator-details" class="anchor" href="retrieve-operator-details">Retrieving Information about the Deployed Operators</a>
 
 If the prerequisites are fine we may need to inspect the operators objects. Operators are by default installed by the PackageInstall in the namespace rabbitmq-system
 
@@ -124,7 +123,8 @@ If the prerequisites are fine we may need to inspect the operators objects. Oper
   kubectl logs standby-replication-operator-545c66cb66-cskph   -n rabbitmq-system >  rabbitmq-standby-operator.log
   ```
     
-## RabbitMQ server information
+
+## <a id="retrieve-cluster-information" class="anchor" href="retrieve-cluster-information">Retrieving Information about the RabbitMQ Cluster</a>
 
 This section contains specific checks on the RabbitMQ deployed cluster.
 
