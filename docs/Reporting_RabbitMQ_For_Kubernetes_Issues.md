@@ -49,12 +49,12 @@ If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu Rab
   *  Is the issue impacting a specific Kubernetes Operator (Cluster Operator, Message Topology Operator, and Standby Replication Operator) or is the issue impacting RabbitMQ core functionality?
      
      To retrieve useful informations about the Kubernetes cluster that is deployed such as the number of nodes, the total number of cores, memory usage, the network (Calico, CNI, or others), and the storage classes that are in use, run the following commands:
-  ```
-  kubectl get nodes 
-  kubectl describe nodes 
-  kubectl get pv
-  kubectl get storageclasses 
-  ```
+     ```
+     kubectl get nodes 
+     kubectl describe nodes 
+     kubectl get pv
+     kubectl get storageclasses 
+     ```
 
 ## <a id="issues-during-install-upgrade" class="anchor" href="issues-during-install-upgrade">Specific issues during the Installation or Upgrade of the Commercial Tanzu RabbitMQ for Kubernetes Version</a>
 
