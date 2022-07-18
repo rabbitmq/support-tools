@@ -1,6 +1,6 @@
 # Data Collection Form for Tanzu RabbitMQ for Kubernetes Issues that Require Further Investigation/Escalation
 
-If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu RabbitMQ for Kubernetes Research and Development team for further investigation and resolution, please answer the questions in this form and submit these answers in the ticket that you are opening for research and development.
+If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu RabbitMQ for Kubernetes Research and Development team for further investigation and resolution, please answer the questions in this form and submit these answers in the ticket that you are assigning to the research and development to get the issue resolved.
 
 ## The Research and Development Team Need the Following Information to Work on the Issue:
 
@@ -9,13 +9,13 @@ If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu Rab
    * Open source  
    
 2. **What is the product version?**
-  * Commercial: What is the Tanzu RabbitMQ for Kubernetes version? The product versions currently in use are: 1.0, 1.1, 1.2, and 1.3. There will be future versions. 
+  * **Commercial: What is the Tanzu RabbitMQ for Kubernetes version?** The product versions currently in use are: 1.0, 1.1, 1.2, and 1.3. There will be future versions. 
     Run the following command to get the product version: </br>
     
     ```  
     kubectl get PackageInstall tanzu-rabbitmq -o yaml -n rabbitmq-system | grep "version:" 
     ```
-  * Open source: What are the operator versions and RabbitMQ images being used?  </br>
+  * **Open source: What are the operator versions and RabbitMQ images being used?**  </br>
     
     Run the following commands to get the operator versions and RabbitMQ images being used: 
     ```
@@ -33,7 +33,7 @@ If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu Rab
    kubectl version
    ``` 
 6. **Is the issue is related to an Installation/Upgrade procedure?**
-   If so, see "Specific issues during Installation/Upgrade of the commercial version" below. 
+   If so, see [Specific Issues during the Installation or Upgrade of the Commercial Tanzu RabbitMQ for Kubernetes Product](#issues-during-install-upgrade). 
 
 7. 
 *  
@@ -53,7 +53,8 @@ If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu Rab
   kubectl get pv
   kubectl get storageclasses 
   ```
-## Specific issues during Installation/Upgrade of the commercial version
+## Specific Issues during the Installation or Upgrade of the Commercial Tanzu RabbitMQ for Kubernetes Product
+## <a id="issues-during-install-upgrade" class="anchor" href="issues-during-install-upgrade">Specific issues during the Installation or Upgrade of the Commercial Tanzu RabbitMQ for Kubernetes Version</a>
 
 This section concerns problems related to installation/update
 Tanzu RabbitMQ is installed through the Carvel toolchain.</br>
