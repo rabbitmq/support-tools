@@ -34,7 +34,7 @@ If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu Rab
    ``` 
    
 6. **Is the issue related to the installation or upgrade of the product?**
-   To investigate and provide further information, see [Specific Issues during the Installation or Upgrade of the Commercial Tanzu RabbitMQ for Kubernetes  Product](#issues-during-install-upgrade). 
+*  To investigate and provide further information, see [Specific Issues during the Installation or Upgrade of the Commercial Tanzu RabbitMQ for Kubernetes  Product](#issues-during-install-upgrade). 
 
 7. **Is the issue related to the deployed operators?**
 *  To investigate and provide further information (status, description and logs) about the deployed operators, see [Retrieving Information about the Deployed Operators](#retrieve-operator-details).
@@ -62,7 +62,7 @@ If the issue is related to the [installation or upgrade of the Tanzu RabbitMQ fo
 
 ### Check the Prerequites are Complete and cert-manager is Installed
 
-**Important:**  Some xample commands are used in this section, make the required edits to file names and so on for your environment before running these commands.
+**Important:**  Some example commands are used in this section, make the required edits to file names and so on for your environment before running these commands.
 
 * Verify that the Tanzu Cluster Essentials package is installed on the Kubernetes cluster and the `kapp-controller` and `secretgen-controller` Kubernetes controllers are installed and running. Also, verify that `cert-manager` is installed on the Kubernetes cluster.
   You can to get deployment information for the  `kapp-controller` and `secretgen-controller` controllers and `cert-manager` by running the following commands: 
@@ -98,7 +98,7 @@ If prerequisites are ok, next, check the Operator and RabbitMQ server informatio
 
 **Important:**  Example commands are used in this section, make the required edits to file names and so on for your environment before running these commands. 
 
-If the prerequisites ok, next, complete checks on the Operators. By default, Operators are installed by the `PackageInstall` object in the `rabbitmq-system` namespace.
+If the prerequisites are ok, next, complete checks on the Operators. By default, Operators are installed by the `PackageInstall` object in the `rabbitmq-system` namespace.
 
 * To get the status, description, and definition file for the deployed Cluster Operator, information about the replicaset and the pods running inside the `rabbitmq-system` namespace, and to review the logs for the Cluster Operator pods, run the following commands. 
   ```
