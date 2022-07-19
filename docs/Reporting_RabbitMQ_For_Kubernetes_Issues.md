@@ -56,9 +56,9 @@ If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu Rab
      kubectl get storageclasses 
      ```
 
-## <a id="issues-during-install-upgrade" class="anchor" href="issues-during-install-upgrade">Specific issues during the Installation or Upgrade of the Commercial Tanzu RabbitMQ for Kubernetes Version</a>
+## <a id="issues-during-install-upgrade" class="anchor" href="issues-during-install-upgrade">Specific issues during the Installation of the Commercial Tanzu RabbitMQ for Kubernetes Version</a>
 
-If the issue is related to the [installation or upgrade of the Tanzu RabbitMQ for Kubernetes commercial product using the Carvel toolchain](https://docs.vmware.com/en/VMware-Tanzu-RabbitMQ-for-Kubernetes/1.3/tanzu-rmq/GUID-installation.html), check the following:
+If the issue is related to the [installation of the Tanzu RabbitMQ for Kubernetes commercial product using the Carvel toolchain](https://docs.vmware.com/en/VMware-Tanzu-RabbitMQ-for-Kubernetes/1.3/tanzu-rmq/GUID-installation.html), check the following:
 
 ### Check the Prerequites are Complete and cert-manager is Installed
 
