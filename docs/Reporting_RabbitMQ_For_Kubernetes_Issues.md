@@ -62,7 +62,7 @@ If the issue is related to the [installation or upgrade of the Tanzu RabbitMQ fo
 
 ### Check the Prerequites are Complete and cert-manager is Installed
 
-**Important:**  Some example commands are used in this section. Before running the commands, make the required edits to file names and so on in the commands for your specific environment.
+**Important:**  Some example commands are used in this section. Before running the commands, edit the required parameters and values in these commands based on your own specific environment.
 
 * Verify that the Tanzu Cluster Essentials package is installed on the Kubernetes cluster and the `kapp-controller` and `secretgen-controller` Kubernetes controllers are installed and running. Also, verify that `cert-manager` is installed on the Kubernetes cluster.
   You can to get deployment information for the  `kapp-controller` and `secretgen-controller` controllers and `cert-manager` by running the following commands: 
@@ -96,7 +96,7 @@ If the prerequisites are ok, next, check the Operator and RabbitMQ server inform
 
 ## <a id="retrieve-operator-details" class="anchor" href="retrieve-operator-details">Retrieving Information about the Deployed Operators</a>
 
-**Important:**  Example commands are used in this section. Before running the commands, make the required edits to file names and so on in the commands for your specific environment. 
+**Important:**  Example commands are used in this section. Before running the commands, edit the required parameters and values in these commands based on your own specific environment. 
 
 If the prerequisites are ok, next, complete checks on the Operators. By default, Operators are installed by the `PackageInstall` object in the `rabbitmq-system` namespace.
 
@@ -127,7 +127,7 @@ If the prerequisites are ok, next, complete checks on the Operators. By default,
 
 ## <a id="retrieve-cluster-information" class="anchor" href="retrieve-cluster-information">Retrieving Information about the RabbitMQ Cluster</a>
 
-**Important:**  Example commands are used in this section. Before running the commands, make the required edits to file names and so on in the commands for your specific environment. 
+**Important:**  Example commands are used in this section. Before running the commands, edit the required parameters and values in these commands based on your own specific environment. 
 
 This section contains specific checks on the RabbitMQ deployed cluster.
 
