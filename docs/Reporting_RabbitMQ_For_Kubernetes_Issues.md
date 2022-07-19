@@ -34,7 +34,7 @@ If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu Rab
    ``` 
    
 5. **Is the issue related to the installation or upgrade of the product?**
-*  To investigate and provide further information, see [Specific Issues during the Installation or Upgrade of the Commercial Tanzu RabbitMQ for Kubernetes  Product](#issues-during-install-upgrade). 
+*  To investigate and provide further information, see [Specific Issues during the Installation of the Commercial Tanzu RabbitMQ for Kubernetes  Product](#issues-during-install-upgrade). 
 
 6. **Is the issue related to the deployed operators?**
 *  To investigate and provide further information (status, description and logs) about the deployed operators, see [Retrieving Information about the Deployed Operators](#retrieve-operator-details).
