@@ -26,23 +26,23 @@ If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu Rab
 3. **What is the The Kubernetes distribution?**
    Possible options are: TKG, GKE, AKS, EKS, Openshift, Anthos etc
    
-5. **What is the Kubernetes version?**
+4. **What is the Kubernetes version?**
    Run the following command to get the Kubernetes version: 
    
    ```
    kubectl version
    ``` 
    
-6. **Is the issue related to the installation or upgrade of the product?**
+5. **Is the issue related to the installation or upgrade of the product?**
 *  To investigate and provide further information, see [Specific Issues during the Installation or Upgrade of the Commercial Tanzu RabbitMQ for Kubernetes  Product](#issues-during-install-upgrade). 
 
-7. **Is the issue related to the deployed operators?**
+6. **Is the issue related to the deployed operators?**
 *  To investigate and provide further information (status, description and logs) about the deployed operators, see [Retrieving Information about the Deployed Operators](#retrieve-operator-details).
 
-8. **Is the issue related to the RabbitMQ cluster object(s)?**
+7. **Is the issue related to the RabbitMQ cluster object(s)?**
 *  To investigate and provide further information (status, description and logs) about the RabbitMQ cluster object(s), see [Retrieving Information about the RabbitMQ Cluster](#retrieve-cluster-information).
 
-9. **Provide a detailed description of the scenario causing the issue by answering the following questions:**
+8. **Provide a detailed description of the scenario causing the issue by answering the following questions:**
   *  Is an issue happening during installation or upgrade of the product or running a scenario on a correctly deployed RabbitMQ cluster?
   *  Is the issue happening with a specific scenario such as standby replication, MQTT, STOMP? If the answer is yes, please see the next question otherwise skip the next question.
   *  Can the issue still be reproduced with this specific scenario? If the answer is yes, provide as much detail as possible about this scenario including any logs.
