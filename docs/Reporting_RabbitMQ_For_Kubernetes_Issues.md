@@ -92,7 +92,7 @@ If the issue is related to the [installation or upgrade of the Tanzu RabbitMQ fo
   kubectl get PackageInstall tanzu-rabbitmq-install -o yaml > tanzu-rabbitmq.yml
   ```
 
-If prerequisites are ok, next, check the Operator and RabbitMQ server information.
+If the prerequisites are ok, next, check the Operator and RabbitMQ server information.
 
 ## <a id="retrieve-operator-details" class="anchor" href="retrieve-operator-details">Retrieving Information about the Deployed Operators</a>
 
