@@ -82,33 +82,41 @@ If the issue is related to the [installation of the Tanzu RabbitMQ for Kubernete
 
 **Important:**  Some example commands are used in this section. Before running the commands, edit the required parameters and values in these commands based on your own specific environment.
 
-* Verify that the Tanzu Cluster Essentials package is installed on the Kubernetes cluster and the `kapp-controller` and `secretgen-controller` Kubernetes controllers are installed and running. Also, verify that `cert-manager` is installed on the Kubernetes cluster.
-  You can to get deployment information for the  `kapp-controller` and `secretgen-controller` controllers and `cert-manager` by running the following commands: 
-  ```
-  kubectl describe deployment kapp-controller -n kapp-controller | grep "kapp-controller.carvel.dev/version"
-  kubectl describe deploy secretgen-controller -n secretgen-controller | grep "secretgen-controller.carvel.dev/version"
-  kubectl describe deployment cert-manager -n cert-manager | grep version
-  ```
-* To get status information and a description of the replicaset and the pods running inside the `kapp-controller` controller as well as review the logs, run the following commands.
-  ``` shell
-  kubectl get all -n kapp-controller
-  kubectl describe replicaset kapp-controller-54fdd6557d -n kapp-controller
-  kubectl describe pod kapp-controller-54fdd6557d-782cw -n kapp-controller
-  kubectl logs kapp-controller-54fdd6557d-782cw -c kapp-controller -n kapp-controller
-  ```
-* To get status information and a description of the replicaset and the pods running inside the `secretgen-controller` controller as well as review the logs, run the following commands:
-  ``` shell
-  kubectl get all -n secretgen-controller
-  kubectl describe replicaset secretgen-controller-7995bcbd87 -n secretgen-controller
-  kubect logs secretgen-controller-7995bcbd87-kqctv -n secretgen-controller
-  ```
-* To get the status, description of the `PackageRepository` and `PackageInstall` objects, and review the Yaml definition files of these objects, run the following commands:
-  ``` shell
-  kubectl describe PackageRepository tanzu-rabbitmq-repo
-  kubectl get PackageRepository tanzu-rabbitmq-repo -o yaml > tanzu-rabbitmq-repo.yml
-  kubectl describe PackageInstall tanzu-rabbitmq-install
-  kubectl get PackageInstall tanzu-rabbitmq-install -o yaml > tanzu-rabbitmq.yml
-  ```
+Verify that the Tanzu Cluster Essentials package is installed on the Kubernetes cluster and the `kapp-controller` and `secretgen-controller` Kubernetes controllers are installed and running. Also, verify that `cert-manager` is installed on the Kubernetes cluster.
+
+You can to get deployment information for the  `kapp-controller` and `secretgen-controller` controllers and `cert-manager` by running the following commands:
+
+``` shell
+kubectl describe deployment kapp-controller -n kapp-controller | grep "kapp-controller.carvel.dev/version"
+kubectl describe deploy secretgen-controller -n secretgen-controller | grep "secretgen-controller.carvel.dev/version"
+kubectl describe deployment cert-manager -n cert-manager | grep version
+```
+
+To get status information and a description of the replicaset and the pods running inside the `kapp-controller` controller as well as review the logs, run the following commands.
+
+``` shell
+kubectl get all -n kapp-controller
+kubectl describe replicaset kapp-controller-54fdd6557d -n kapp-controller
+kubectl describe pod kapp-controller-54fdd6557d-782cw -n kapp-controller
+kubectl logs kapp-controller-54fdd6557d-782cw -c kapp-controller -n kapp-controller
+```
+
+To get status information and a description of the replicaset and the pods running inside the `secretgen-controller` controller as well as review the logs, run the following commands:
+
+``` shell
+kubectl get all -n secretgen-controller
+kubectl describe replicaset secretgen-controller-7995bcbd87 -n secretgen-controller
+kubect logs secretgen-controller-7995bcbd87-kqctv -n secretgen-controller
+```
+
+To get the status, description of the `PackageRepository` and `PackageInstall` objects, and review the Yaml definition files of these objects, run the following commands:
+
+``` shell
+kubectl describe PackageRepository tanzu-rabbitmq-repo
+kubectl get PackageRepository tanzu-rabbitmq-repo -o yaml > tanzu-rabbitmq-repo.yml
+kubectl describe PackageInstall tanzu-rabbitmq-install
+kubectl get PackageInstall tanzu-rabbitmq-install -o yaml > tanzu-rabbitmq.yml
+```
 
 If the prerequisites are ok, next, check the Operator and RabbitMQ server information.
 
