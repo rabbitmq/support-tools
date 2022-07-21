@@ -139,6 +139,7 @@ kubectl describe pod rabbitmq-cluster-operator-767c4c7575-6bvmp  -n rabbitmq-sys
 kubectl logs rabbitmq-cluster-operator-767c4c7575-6bvmp  -n rabbitmq-system >  rabbitmq-cluster-operator.log
 ```
 
+If the issue reported is related to a Messaging topology operator or Standby Replication Operator scenario we need informations for these operators too.
 To get the status, description, and definition file for the deployed Messaging Topology Operator or Standby Replication Operator, information about the replicaset and the pods running inside the `rabbitmq-system` namespace, and to review the logs for the Messaging Topology Operator or Standby Replication Operator pods, run the following commands.
 
 ``` shell
