@@ -71,7 +71,9 @@ memory usage, the network (Calico, CNI, or others), and the storage classes that
 kubectl get nodes
 kubectl describe nodes
 kubectl get pv
+kubectl describe pv
 kubectl get storageclasses
+kubectl describe storageclasses
 ```
 
 ## <a id="issues-during-install-upgrade" class="anchor" href="issues-during-install-upgrade">Specific issues during the Installation of the Commercial Tanzu RabbitMQ for Kubernetes Version</a>
