@@ -70,8 +70,6 @@ memory usage, the network (Calico, CNI, or others), and the storage classes that
 ``` shell
 kubectl get nodes
 kubectl describe nodes
-kubectl get pv
-kubectl describe pv
 kubectl get storageclasses
 kubectl describe storageclasses
 ```
