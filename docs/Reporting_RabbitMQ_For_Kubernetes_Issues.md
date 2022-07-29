@@ -174,6 +174,15 @@ kubectl logs hello-world-server-1 -n rabbitmq-cluster > rabbit-server-1.log
 kubectl logs hello-world-server-2 -n rabbitmq-cluster > rabbit-server-2.log
 ```
 
+Some informations about the status of the persistent volume/persistent volume claims can be useful too.
+Command to use as example (if the broker is deployed in the rabbitmq-system namespace):
+
+``` shell
+kubectl get pv -n rabbitmq-system
+kubectl get pvc -n rabbitmq-system
+```
+
+
 To get the yaml definition for the RabbitMQ cluster, run the following command:
 Command to use as example:
 
