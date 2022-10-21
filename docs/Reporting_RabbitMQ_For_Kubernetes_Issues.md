@@ -155,7 +155,7 @@ kubectl describe pod standby-replication-operator-545c66cb66-cskph   -n rabbitmq
 kubectl logs standby-replication-operator-545c66cb66-cskph   -n rabbitmq-system >  rabbitmq-standby-operator.log
 ```
 
-If you are using the messaging topology operator with Cert Manager to manage certificates and you having issues with TLS connections or certificates it may be a good idea to check the status of the cert-manager namespace objects too.
+If you are using the messaging topology operator with Cert Manager to manage certificates and you are having issues with TLS connections or certificates it may be a good idea to check the status of the cert-manager namespace objects too with the usual kubectl get/describe command on the objects: deployments, pods and check the logs of the pods too to see if there are issues.
 
 ``` shell
 kubectl get all -n cert-manager
