@@ -62,7 +62,7 @@ by answering the following questions
  * Is an issue happening during installation or upgrade of the product or running a scenario on a correctly deployed RabbitMQ cluster?
  * Is the issue happening with a specific scenario such as standby replication, MQTT, STOMP? If the answer is yes, please see the next question otherwise skip the next question.
  * Can the issue still be reproduced with this specific scenario? If the answer is yes, provide as much detail as possible about this scenario including any logs.
- * Is the issue impacting a specific Kubernetes Operator (Cluster Operator, Message Topology Operator, and Standby Replication Operator) or is the issue impacting RabbitMQ core functionality?
+ * Is the issue impacting a specific Kubernetes Operator (Cluster Operator, Messaging Topology Operator, and Standby Replication Operator) or is the issue impacting RabbitMQ core functionality?
      
 To retrieve useful informations about the Kubernetes cluster that is deployed such as the number of nodes, the total number of cores,
 memory usage, the network (Calico, CNI, or others), and the storage classes that are in use, run the following commands:
@@ -153,6 +153,13 @@ kubectl describe deployment standby-replication-operator  -n rabbitmq-system
 kubectl get deployment standby-replication-operator -o yaml >  rabbitmq-standby-replication-operator-deploy.yml
 kubectl describe pod standby-replication-operator-545c66cb66-cskph   -n rabbitmq-system
 kubectl logs standby-replication-operator-545c66cb66-cskph   -n rabbitmq-system >  rabbitmq-standby-operator.log
+```
+
+If you are using the messaging topology operator with Cert Manager to manage certificates and you having issues with TLS connections or certificates it may be a good idea to check the status of the cert-manager namespace objects too.
+
+``` shell
+kubectl get all -n cert-manager
+kubectl get logs -l app.kubernetes.io/instance=cert-manager -n cert-manager
 ```
 
 ## <a id="retrieve-cluster-information" class="anchor" href="retrieve-cluster-information">Retrieving Information about the RabbitMQ Cluster</a>
