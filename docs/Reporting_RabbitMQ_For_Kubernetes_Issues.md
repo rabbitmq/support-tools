@@ -65,13 +65,15 @@ by answering the following questions
  * Is the issue impacting a specific Kubernetes Operator (Cluster Operator, Messaging Topology Operator, and Standby Replication Operator) or is the issue impacting RabbitMQ core functionality?
      
 To retrieve useful informations about the Kubernetes cluster that is deployed such as the number of nodes, the total number of cores,
-memory usage, the network (Calico, CNI, or others), and the storage classes that are in use, run the following commands:
+cpu and memory usage, the network (Calico, CNI, or others), and the storage classes that are in use, run the following commands:
 
 ``` shell
 kubectl get nodes
 kubectl describe nodes
 kubectl get storageclasses
 kubectl describe storageclasses
+kubectl top node
+kubectl top pod --all-namespaces
 ```
 
 ## <a id="issues-during-install-upgrade" class="anchor" href="issues-during-install-upgrade">Specific issues during the Installation of the Commercial Tanzu RabbitMQ for Kubernetes Version</a>
