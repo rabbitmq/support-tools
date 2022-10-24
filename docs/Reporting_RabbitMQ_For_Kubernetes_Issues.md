@@ -199,6 +199,12 @@ Command to use as example:
 kubectl get rabbitmqcluster.rabbitmq.com rabbit-cluster-name -o yaml > rabbitmq_cluster.yml
 ```
 
-If the issue is specific to the RabbitMQ core deployment, you must follow the [Best Practices for reporting RabbitMQ issues](https://github.com/rabbitmq/support-tools/blob/master/docs/Reporting_RabbitMQ_Issues.md) guidelines.
+## <a id="retrieve-operator-details" class="anchor" href="retrieve-operator-details">Diagnostic tool</a>
+We developed a (still experimental) tool in order to collect all these informations based on the commands of this documentation which can be found here: </br>
+
+https://github.com/rabbitmq/support-tools/tree/main/scripts/rabbitmq-k8s-runbook 
+</br>
+
+Note: If the issue is specific to the RabbitMQ core deployment, you must follow the [Best Practices for reporting RabbitMQ issues](https://github.com/rabbitmq/support-tools/blob/master/docs/Reporting_RabbitMQ_Issues.md) guidelines.
 
 
