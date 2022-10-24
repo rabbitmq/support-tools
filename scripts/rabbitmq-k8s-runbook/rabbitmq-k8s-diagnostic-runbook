@@ -1,0 +1,468 @@
+#!/bin/bash
+#
+# RabbitMQ Diagnostic tool for cluster operator
+#
+# Copyright 2022 VMware, Inc. All Rights Reserved.
+#
+# This product is licensed to you under the Mozilla Public license, Version 2.0 (the "License").  You may not use this product except in compliance with the Mozilla Public License.
+#
+# This product may include a number of subcomponents with separate copyright notices and license terms. Your use of these subcomponents is subject to the terms and conditions of the subcomponent's license, as noted in the LICENSE file.
+
+set -euo pipefail
+
+RABBITMQ_OPERATORS_NAMESPACE=""
+RABBITMQ_CLUSTER_NAMESPACE=""
+KAPP_NAMESPACE="kapp-controller"
+SECRETGEN_NAMESPACE="secretgen-controller"
+# namesapce where PackageRepo and PackageInstall type are deployed (if not specified default namespace - commercial version only)
+CARVEL_PACKAGES_NAMESPACE=""
+OUTPUT_DIRECTORY=""
+YEL=$'\e[1;33m'
+RED=$'\e[1;31m'
+END=$'\e[0m'
+
+usage() {
+    usage=$(
+        cat <<-END
+USAGE:
+  Get info about the Kubernetes cluster (last parameter is the output directory)
+    rabbitmq-k8s-diagnostic-runbook get_k8s_cluster_info output_directory
+
+  Get info about specific carvel components (commercial version only): tanzu-eseential, kapp, secretgen-controller, PackageRepo and PackageInstall (last parameter is the output directory).
+  To specify the namespace where the PackageRepo and PackageInstall are deployed (if none we will search on default namespace)
+    rabbitmq-k8s-diagnostic-runbook get_carvel_components_info -n namespace
+
+  Get info about operators: cluster-operator, messaging-topology-operator (if deployed) and standby-replication-operator (if deployed in commercial version only) last parameter is the output directory
+  To specify the namespace where the operators are deployed (if none we will search on rabbitmq-system namespace)
+    rabbitmq-k8s-diagnostic-runbook get_operators_info -n namespace
+
+  Get info about the rabbitmq cluster deployed (last parameter is the output directory)
+  To specify the namespace where the cluster is deployed (if none we will search on default namespace)
+    rabbitmq-k8s-diagnostic-runbook get_rabbitmq_cluster_info -n namespace
+
+END
+    )
+    echo "$usage"
+}
+
+
+data_diagnostic_cluster_info()   {
+
+    OUTPUT_DIRECTORY=$1
+
+    printf "\\n[INFO] Getting some Kubernetes cluster info and storing them in $OUTPUT_DIRECTORY/k8s-cluster/info.\\n"
+    mkdir -p $OUTPUT_DIRECTORY/k8s-cluster/info
+
+    # Get K8s cluster info
+    kubectl version > $OUTPUT_DIRECTORY/k8s-cluster/info/k8s_version.info
+    kubectl get nodes > $OUTPUT_DIRECTORY/k8s-cluster/info/k8s_nodes.info
+    kubectl describe nodes >> $OUTPUT_DIRECTORY/k8s-cluster/info/k8s_nodes.info
+    kubectl get storageclass > $OUTPUT_DIRECTORY/k8s-cluster/info/k8s_storage.info
+    kubectl describe storageclass >> $OUTPUT_DIRECTORY/k8s-cluster/info/k8s_storage.info
+    kubectl top nodes  > $OUTPUT_DIRECTORY/k8s-cluster/info/top.info
+    kubectl top pod --all-namespaces  >> $OUTPUT_DIRECTORY/k8s-cluster/info/top.info
+
+    printf "[INFO] Completed storing K8s info in $OUTPUT_DIRECTORY/k8s-cluster/info\\n"
+}
+
+data_diagnostic_carvel_components_info()  {
+
+    CARVEL_PACKAGES_NAMESPACE=$1
+    OUTPUT_DIRECTORY=$2
+ 
+    printf "\\n[INFO] Getting info about Tanzu commercial carvel components: tanzu-essential, kapp, secret-gen components and the deployed PackageRepo and PackageInstall\\n"
+    mkdir -p $OUTPUT_DIRECTORY/carvel/info
+    mkdir -p $OUTPUT_DIRECTORY/carvel/logs
+
+    data_diagnostic_carvel_versions 
+    data_diagnostic_carvel_status 
+    data_diagnostic_carvel_logs 
+
+    printf "\\n[INFO]Ending get_carvel_components_info\\n"
+    
+}
+
+data_diagnostic_carvel_versions()     {
+
+    set +e
+
+    printf "\\n[INFO] Looking for kapp-controller and secret-gen controller versions and saving it in a file.\\n"
+    kapp_version=$(kubectl describe deployment kapp-controller -n kapp-controller | grep "kapp-controller.carvel.dev/version:")
+    if [[ -z "${kapp_version}" ]]; then
+        printf "[ERROR] ${RED}kapp is not installed in the kapp-controller namespace (this is if you are using Tanzu RabbitMQ commercial version only) ${END}\\n"
+        exit -1
+    fi
+
+    secret_gen_controller_version=$(kubectl describe deploy secretgen-controller -n secretgen-controller | grep "secretgen-controller.carvel.dev/version")
+    if [[ -z "${secret_gen_controller_version}" ]]; then
+        printf "[ERROR] ${RED}secret-gen controller is not installed in the secretgen-controller namespace (this is if you are using Tanzu RabbitMQ commercial version only) ${END}\\n"
+        exit -1
+    fi
+
+    echo "kapp version:                              $kapp_version" > $OUTPUT_DIRECTORY/carvel/info/carvel_versions.info
+    echo "secretgen-controller version:              $secret_gen_controller_version" >> $OUTPUT_DIRECTORY/carvel/info/carvel_versions.info
+
+    printf "\\n[INFO] kapp-controller and secret-gen controller versions saved in $OUTPUT_DIRECTORY/carvel/info/carvel_versions.log\\n"
+}
+
+data_diagnostic_carvel_status()    {
+
+    set -e
+
+    # kapp status namespace
+    printf "\\n[INFO] Looking for kapp objects status and definitions in kapp-controller namespace and saving it to a file.\\n"
+    kubectl get all -n $KAPP_NAMESPACE > $OUTPUT_DIRECTORY/carvel/info/kapp_get_all_objects_status.info
+    kubectl describe replicaset -n $KAPP_NAMESPACE >> $OUTPUT_DIRECTORY/carvel/info/kapp_get_all_objects_status.info
+    kubectl describe deploy -n $KAPP_NAMESPACE >> $OUTPUT_DIRECTORY/carvel/info/kapp_get_all_objects_status.info
+    kubectl get deploy -n $KAPP_NAMESPACE -o yaml > $OUTPUT_DIRECTORY/carvel/info/kapp-controller-definition.yaml
+
+
+    # secretgen-controller status namespace
+    printf "[INFO] Looking for secretgen-controller objects status and definitions in secretgen-controller namespace and saving it to files in $OUTPUT_DIRECTORY/carvel/info.\\n"
+    kubectl get all -n $SECRETGEN_NAMESPACE > $OUTPUT_DIRECTORY/carvel/info/sec_gen_get_all_objects_status.info
+    kubectl describe replicaset -n $SECRETGEN_NAMESPACE >> $OUTPUT_DIRECTORY/carvel/info/sec_gen_get_all_objects_status.info
+    kubectl describe deploy -n $SECRETGEN_NAMESPACE >> $OUTPUT_DIRECTORY/carvel/info/sec_gen_get_all_objects_status.info
+    kubectl get deploy -n $SECRETGEN_NAMESPACE -o yaml > $OUTPUT_DIRECTORY/carvel/info/secretgen-controller-definition.yaml
+
+    # PackageRepository and PackageInstall namespaces
+    printf "[INFO] Looking for PackageRepo and PackageInstall objects status in secretgen-controller namespace and saving it to files in $OUTPUT_DIRECTORY/carvel/info.\\n"
+    packagerepo=$(kubectl get PackageRepository -n $CARVEL_PACKAGES_NAMESPACE 2>/dev/null ) 
+    if [[ -z "${packagerepo}" ]]; then
+        printf "\\n${RED}[ERROR] PackageRepository not found in $CARVEL_PACKAGES_NAMESPACE namespace exiting from the script ${END}\\n"
+        exit -1
+    fi
+    echo $packagerepo > $OUTPUT_DIRECTORY/carvel/info/packagerepo.info
+    kubectl describe PackageRepository -n $CARVEL_PACKAGES_NAMESPACE >> $OUTPUT_DIRECTORY/carvel/info/packagerepo.info
+    kubectl get PackageRepository -n $CARVEL_PACKAGES_NAMESPACE -o yaml > $OUTPUT_DIRECTORY/carvel/info/packagerepo_definition.yaml
+
+    packageinstall=$(kubectl get PackageInstall -n $CARVEL_PACKAGES_NAMESPACE 2>/dev/null)
+    if [[ -z "${packageinstall}" ]]; then
+        printf "\\n${RED}[ERROR] PackageInstall not found in $CARVEL_PACKAGES_NAMESPACE namespace exiting from the script ${END}\\n"
+        exit -1
+    fi
+    echo $packageinstall > $OUTPUT_DIRECTORY/carvel/info/packageinstall.info
+
+    kubectl describe PackageInstall -n $CARVEL_PACKAGES_NAMESPACE >> $OUTPUT_DIRECTORY/carvel/info/packageinstall.info
+    kubectl get PackageInstall -n $CARVEL_PACKAGES_NAMESPACE -o yaml > $OUTPUT_DIRECTORY/carvel/info/packageinstall_definition.yaml
+
+    printf "[INFO] data_diagnostic_carvel_status completed info saved to files\\n"
+
+} 
+
+data_diagnostic_carvel_logs()      {
+
+    printf "\\n[INFO] Saving pod logs of kapp-controller and secretgen-controller to files in $OUTPUT_DIRECTORY/carvel/logs\\n"
+
+    kubectl logs -l app=kapp-controller -n $KAPP_NAMESPACE -c kapp-controller --tail -1 > $OUTPUT_DIRECTORY/carvel/logs/kapp-controller.log 
+    kubectl logs -l app=secretgen-controller -n $SECRETGEN_NAMESPACE --tail -1 > $OUTPUT_DIRECTORY/carvel/logs/secretgen-controller.log
+
+    printf "[INFO] data_diagnostic_carvel_logs completed logs of kapp-controller and secretgen-controller saved to files\\n" 
+
+}
+
+data_diagnostic_rabbitmq_cluster_info()  {
+
+    printf "\\n[INFO] Getting info on the RabbitMQ cluster deployed"
+
+    RABBITMQ_CLUSTER_NAMESPACE=$1
+    OUTPUT_DIRECTORY=$2
+
+    rabbitmq_cluster_output_folder=$OUTPUT_DIRECTORY/rabbitmqcluster_$RABBITMQ_CLUSTER_NAMESPACE
+    rabbitmq_cluster_output_info_folder=$rabbitmq_cluster_output_folder/info
+    rabbitmq_cluster_output_logs_folder=$rabbitmq_cluster_output_folder/logs
+
+    mkdir -p $rabbitmq_cluster_output_info_folder
+    mkdir -p $rabbitmq_cluster_output_logs_folder
+       
+    data_diagnostic_rabbitmq_cluster_status 
+    data_diagnostic_rabbitmq_cluster_definitions
+    data_diagnostic_rabbitmq_cluster_logs 
+
+    printf "[INFO] Ending get_rabbitmq_cluster_info\\n"
+
+}
+
+ data_diagnostic_rabbitmq_cluster_status()    {
+
+    set +e
+   
+    printf "\\n[INFO] Checking if a rabbitmq cluster is deployed on namespace $RABBITMQ_CLUSTER_NAMESPACE\\n"
+
+    rabbitmq_cluster=$(kubectl get rabbitmqcluster.rabbitmq.com -n  $RABBITMQ_CLUSTER_NAMESPACE 2>/dev/null)
+    if [[ -z "${rabbitmq_cluster}" ]]; then
+        printf "\\n[ERROR] ${RED} rabbitmqcluster.rabbitmq.com is not deployed in the specified $RABBITMQ_CLUSTER_NAMESPACE namespace ${END}\\n"
+        exit -1
+    fi
+    
+    printf "[INFO] Get all objects and description: rabbitmqcluster, statefulset, pods, pvc deployed in the $RABBITMQ_CLUSTER_NAMESPACE namespace and saving in $OUTPUT_DIRECTORY/rabbitmqcluster/info\\n"
+    kubectl get all -l app.kubernetes.io/component=rabbitmq -n $RABBITMQ_CLUSTER_NAMESPACE > $rabbitmq_cluster_output_info_folder/get_all_objects.info   
+    kubectl describe rabbitmqcluster.rabbitmq.com -n  $RABBITMQ_CLUSTER_NAMESPACE > $rabbitmq_cluster_output_info_folder/rabbitmqcluster.info
+
+    rabbitmq_stateful_set=$(kubectl get statefulset -l app.kubernetes.io/component=rabbitmq -n  $RABBITMQ_CLUSTER_NAMESPACE 2>/dev/null)
+    if [[ -z "${rabbitmq_cluster}" ]]; then
+        printf "\\n[ERROR] ${RED} rabbitmqcluster.rabbitmq.com statefulset not present in the specified $RABBITMQ_CLUSTER_NAMESPACE namespace ${END}"
+        exit -1
+    fi
+    
+    kubectl describe statefulset -l app.kubernetes.io/component=rabbitmq -n  $RABBITMQ_CLUSTER_NAMESPACE >> $rabbitmq_cluster_output_info_folder/statefulset.info
+
+    rabbitmq_pods=$(kubectl get pod -l app.kubernetes.io/component=rabbitmq  -n $RABBITMQ_CLUSTER_NAMESPACE 2>/dev/null)
+    if [[ -z "${rabbitmq_pods}" ]]; then
+        printf "\\n[ERROR] ${RED} rabbitmqcluster.rabbitmq.com pods not present in the specified $RABBITMQ_CLUSTER_NAMESPACE namespace ${END}\\n"
+        exit -1
+    fi
+   
+    kubectl describe pod -l app.kubernetes.io/component=rabbitmq  -n $RABBITMQ_CLUSTER_NAMESPACE > $rabbitmq_cluster_output_info_folder/pods.info
+
+    kubectl get pv -n $RABBITMQ_CLUSTER_NAMESPACE > $rabbitmq_cluster_output_info_folder/storage.info
+    kubectl describe pv -n $RABBITMQ_CLUSTER_NAMESPACE >> $rabbitmq_cluster_output_info_folder/storage.info
+    kubectl get pvc -n $RABBITMQ_CLUSTER_NAMESPACE >> $rabbitmq_cluster_output_info_folder/storage.info
+    kubectl describe pvc -n $RABBITMQ_CLUSTER_NAMESPACE >> $rabbitmq_cluster_output_info_folder/storage.info
+
+    printf "[INFO] Checking RabbitMQ version and storing it in $OUTPUT_DIRECTORY/rabbitmqcluster/info"
+
+    pod_name=$(head -1 $rabbitmq_cluster_output_info_folder/pods.info | sed s/"Name:         "//g)
+    rabbitmq_version=$(kubectl exec -it $pod_name  -n $RABBITMQ_CLUSTER_NAMESPACE -- rabbitmqctl version)
+    echo "RabbitMQ version: $rabbitmq_version" > $rabbitmq_cluster_output_info_folder/rabbitmq_version.info
+
+    printf "\\n[INFO] Get/Description of all objects completed and stored in a file in $OUTPUT_DIRECTORY/rabbitmqcluster/info\\n"
+
+ }
+
+ data_diagnostic_rabbitmq_cluster_definitions()    {
+
+    set -e
+    
+    printf "[INFO] Get yaml defitions of rabbitmqcluster.rabbitmq.com, statefulset and pod and saving them in $OUTPUT_DIRECTORY/rabbitmqcluster/info\\n"
+
+    kubectl get rabbitmqcluster.rabbitmq.com -n  $RABBITMQ_CLUSTER_NAMESPACE -o yaml > $rabbitmq_cluster_output_info_folder/rabbitmqcluster-definition.yaml
+    kubectl get statefulset -l app.kubernetes.io/component=rabbitmq -n  $RABBITMQ_CLUSTER_NAMESPACE -o yaml > $rabbitmq_cluster_output_info_folder/statefulset-definition.yaml
+    kubectl get pod -l app.kubernetes.io/component=rabbitmq  -n $RABBITMQ_CLUSTER_NAMESPACE -o yaml >> $rabbitmq_cluster_output_info_folder/pods-definition.yaml
+
+    printf "[INFO] Yaml definition export completed \\n"
+ }
+
+ data_diagnostic_rabbitmq_cluster_logs()      {
+
+
+    printf "[INFO] Get pod logs of rabbitmqcluster in $RABBITMQ_CLUSTER_NAMESPACE and saving in a file $OUTPUT_DIRECTORY/rabbitmqcluster/logs/pods.log\\n"
+
+    kubectl logs -l app.kubernetes.io/component=rabbitmq  -n $RABBITMQ_CLUSTER_NAMESPACE --tail -1 >> $rabbitmq_cluster_output_logs_folder/pods.log
+
+    printf "[INFO] Get pod logs completed and stored in $OUTPUT_DIRECTORY/rabbitmqcluster/logs/pods.log\\n"
+
+ }
+
+ data_diagnostic_operators_info()   {
+
+    
+    printf "\\n[INFO] Getting info about the RabbitMQ operators deployed\\n"
+
+    RABBITMQ_OPERATORS_NAMESPACE=$1
+    OUTPUT_DIRECTORY=$2
+
+    mkdir -p $OUTPUT_DIRECTORY/operators/info
+    mkdir -p $OUTPUT_DIRECTORY/operators/logs
+
+    data_diagnostic_operators_versions 
+    data_diagnostic_operators_status 
+    data_diagnostic_operators_definition
+    data_diagnostic_operators_logs 
+
+    printf "\\n[INFO] info about the cluster operator function ended\\n"
+}
+
+
+data_diagnostic_operators_versions()    {
+
+    set +e
+
+    printf "[INFO] Checking if operators are deployed in $RABBITMQ_OPERATORS_NAMESPACE namespace if yes saving versions in $OUTPUT_DIRECTORY/operators/info/operators_versions.log\\n"
+    # Get versions:
+    cluster_operator_image=$(kubectl get deployment rabbitmq-cluster-operator  -n ${RABBITMQ_OPERATORS_NAMESPACE} -o yaml 2>/dev/null | grep " image:")
+    if [[ -z "$cluster_operator_image" ]]; then
+        printf "\\n[ERROR] ${RED} cluster operator is not deployed in ${RABBITMQ_OPERATORS_NAMESPACE} namespace ${END}\\n"
+        exit -1
+    fi
+
+    cluster_operator_version=${cluster_operator_image#*/}
+    echo "cluster operator version:             $cluster_operator_version" > $OUTPUT_DIRECTORY/operators/info/operators_versions.info
+    messaging_operator_image=$(kubectl get deployment messaging-topology-operator -n ${RABBITMQ_OPERATORS_NAMESPACE} -o yaml 2>/dev/null | grep " image:")
+    if [[ -z "${messaging_operator_image}" ]]; then
+        printf "\\n${YEL}[WARN] messaging operator is not deployed in rabbitmq-system namespace${END}\\n"
+    else
+        messaging_operator_version=${messaging_operator_image#*/}
+        echo "messaging operator version:           $messaging_operator_version" >> $OUTPUT_DIRECTORY/operators/info/operators_versions.info
+    fi
+
+    standby_operator_image=$(kubectl get deployment standby-replication-operator -n ${RABBITMQ_OPERATORS_NAMESPACE} -o yaml 2>/dev/null | grep " image:")
+    if [[ -z "${standby_operator_image}" ]]; then
+        printf "\\n${YEL}[WARN] standby-replication operator is not deployed in rabbitmq-system namespace. This operator is available just in the Tanzu RabbitMQ commercial version${END}\\n"
+    else
+        standby_operator_version=${standby_operator_image#*/}
+        echo "standby operator version:             $standby_operator_version" >> $OUTPUT_DIRECTORY/operators/info/operators_versions.info
+    fi
+
+    printf "[INFO] Checking if cert-manager is deployed in cert-manager namespace and if yes savin version in $OUTPUT_DIRECTORY/operators/info/operators_versions.log\\n"
+    cert_manager_image=$(kubectl get deploy -l app.kubernetes.io/name=cert-manager -n cert-manager -o yaml 2>/dev/null | grep " image:")
+    cert_manager_version=${cert_manager_image#*/}
+    if [[ -n "${cert_manager_version}" ]]; then
+        echo "cert manager version:                 $cert_manager_version" >> $OUTPUT_DIRECTORY/operators/info/operators_versions.info
+    else
+        printf "\\n${YEL}[WARN] cert manager is not deployed in cert-manager namespace${END}\\n"
+    fi
+
+
+    printf "[INFO] ending saving operator versions\\n\\n"
+
+}
+
+data_diagnostic_operators_status()  {
+
+    set -e
+ 
+    printf "\\n[INFO] Getting info about operator objects: deployment, replicasets, pods and saving them in $OUTPUT_DIRECTORY/operators/info/operator_report.info"
+
+    # Get status (deployment, rs, pods):
+    kubectl get all -n ${RABBITMQ_OPERATORS_NAMESPACE} > $OUTPUT_DIRECTORY/operators/info/operator_report.info
+    printf "\\nkubectl describe deployment output:\\n" >>  $OUTPUT_DIRECTORY/operators/info/operator_report.info
+    kubectl describe deploy -l app.kubernetes.io/component=rabbitmq-operator -n ${RABBITMQ_OPERATORS_NAMESPACE} >> $OUTPUT_DIRECTORY/operators/info/operator_report.info
+    printf "\\kubectl describe replicaset output:\\n" >>  $OUTPUT_DIRECTORY/operators/info/operator_report.info
+    kubectl describe rs -l app.kubernetes.io/component=rabbitmq-operator -n ${RABBITMQ_OPERATORS_NAMESPACE} >> $OUTPUT_DIRECTORY/operators/info/operator_report.info
+    printf "\\nkubectl describe pod output:\\n" >> $OUTPUT_DIRECTORY/operators/info/operator_report.info
+    kubectl describe pod -l app.kubernetes.io/component=rabbitmq-operator -n ${RABBITMQ_OPERATORS_NAMESPACE} >> $OUTPUT_DIRECTORY/operators/info/operator_report.info
+
+    printf "\\n[INFO] Getting info about cert-manager objects if installed: deployment, pods saving them in $OUTPUT_DIRECTORY/operators/info/certmanager_report.info"
+    if [[ -n "${cert_manager_version}" ]]; then
+        kubectl get all  -l app.kubernetes.io/instance=cert-manager -n cert-manager > $OUTPUT_DIRECTORY/operators/info/certmanager_report.info
+        kubectl describe deployment cert-manager -n cert-manager >> $OUTPUT_DIRECTORY/operators/info/certmanager_report.info
+        kubectl describe deployment cert-manager-cainjector -n cert-manager >> $OUTPUT_DIRECTORY/operators/info/certmanager_report.info
+        kubectl describe deployment cert-manager-webhook -n cert-manager >> $OUTPUT_DIRECTORY/operators/info/certmanager_report.info
+    fi
+
+    printf "\\n[INFO] ending storing info about operator objects: deployment, replicasets, pods\\n"
+}
+
+data_diagnostic_operators_definition()     {
+
+    printf "\\n[INFO] Getting the yaml definition of the operators deployment and saving them in $OUTPUT_DIRECTORY/operators/info"
+    kubectl get deployment rabbitmq-cluster-operator -n ${RABBITMQ_OPERATORS_NAMESPACE} -o yaml >  $OUTPUT_DIRECTORY/operators/info/rabbitmq-cluster-operator-deploy.yml
+
+    if [[ -n "${messaging_operator_image}" ]]; then
+        kubectl get deployment messaging-topology-operator -n ${RABBITMQ_OPERATORS_NAMESPACE} -o yaml >  $OUTPUT_DIRECTORY/operators/info/rabbitmq-messaging-topology-operator-deploy.yml
+    fi
+
+    if [[ -n "${standby_operator_image}" ]]; then
+        kubectl get deployment standby-replication-operator -n ${RABBITMQ_OPERATORS_NAMESPACE} -o yaml >  $OUTPUT_DIRECTORY/operators/info/rabbitmq-standby-replication-operator-deploy.yml
+    fi
+
+    printf "\\n[INFO] ending getting yaml definition of the operator deployments\\n"
+
+}
+
+data_diagnostic_operators_logs()   {
+
+    printf "\\n[INFO] Getting operator pod logs saving them in $OUTPUT_DIRECTORY/operators/logs"
+
+    # Get logs for cluster operator
+    kubectl logs -l app.kubernetes.io/name=rabbitmq-cluster-operator --tail -1 -n ${RABBITMQ_OPERATORS_NAMESPACE} > $OUTPUT_DIRECTORY/operators/logs/cluster-operator.log
+    # Get logs for messaging topology operator
+    if [[ -n "${messaging_operator_image}" ]]; then
+        kubectl logs -l app.kubernetes.io/name=messaging-topology-operator --tail -1 -n ${RABBITMQ_OPERATORS_NAMESPACE} > $OUTPUT_DIRECTORY/operators/logs/messaging-operator.log
+        
+    fi
+
+    if [[ -n "${standby_operator_image}" ]]; then
+        kubectl logs -l app.kubernetes.io/name=standby-replication-operator --tail -1 -n ${RABBITMQ_OPERATORS_NAMESPACE} > $OUTPUT_DIRECTORY/operators/logs/standby-replication-operator.log
+        
+    fi
+
+    if [[ -n "${cert_manager_version}" ]]; then
+        kubectl logs -l app.kubernetes.io/instance=cert-manager --tail -1 -n cert-manager > $OUTPUT_DIRECTORY/operators/logs/cert-manager.log
+    fi
+
+    printf "\\n[INFO] Ending getting and storing operator pod logs\\n"
+
+}
+
+main() {
+    if [[ "$1" == "--help" ]]; then
+        usage
+        exit 0
+    fi
+
+    case "$1" in
+    # Get useful info and logs about the K8s cluster
+    "get_k8s_cluster_info")
+        shift 1
+        if [[ "$#" != "1" ]]; then
+            usage
+            exit 1
+        fi
+     
+        data_diagnostic_cluster_info $1
+        ;;
+    # Get info and logs on specific carvel commercial components: tanzu-essential, kapp, secret-gen controller, PackageRepository and PackageInstall
+    "get_carvel_components_info")
+        shift 1
+        if [[ "$#" -gt 3 || "$#" == 2 ]]; then
+            usage
+            exit 1
+        fi
+        if [[ "$#" -lt 3 ]]; then
+            namespace="default"
+            output_dir=$1
+        else
+            namespace=$2
+            output_dir=$3
+        fi
+
+        data_diagnostic_carvel_components_info $namespace $output_dir
+        ;;
+    # Get info and logs on the deployed operators in the given namespace
+    "get_operators_info")
+        shift 1
+        if [[ "$#" -gt 3 || "$#" == 2 ]]; then
+            usage
+            exit 1
+        fi
+        if [[ "$#" -lt 3 ]]; then
+            namespace="rabbitmq-system"
+            output_dir=$1
+        else
+            namespace=$2
+            output_dir=$3
+        fi
+        data_diagnostic_operators_info $namespace $output_dir
+        ;;
+    # Get info and logs of the deployed RabbitMQ cluster deployed in the specified namespace
+    "get_rabbitmq_cluster_info")
+        shift 1
+        if [[ "$#" -gt 3 || "$#" == 2 ]]; then
+            usage
+            exit 1
+        fi
+        if [[ "$#" -lt 3 ]]; then
+            namespace="default"
+            output_dir=$1
+        else
+            namespace=$2
+            output_dir=$3
+        fi
+        data_diagnostic_rabbitmq_cluster_info $namespace $output_dir
+        ;;
+    "help")
+        usage
+        ;;
+    *)
+        usage
+        exit 1
+        ;;
+    esac
+}
+
+if [[ "$#" -ge 2 ]]; then
+    main "$@"
+else
+    usage
+fi
