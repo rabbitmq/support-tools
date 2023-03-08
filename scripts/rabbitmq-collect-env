@@ -186,6 +186,11 @@ init_environment()
         rabbitmq_etc_dir='/var/vcap/jobs/rabbitmq-server/packages/rabbitmq-server/etc'
     fi
 
+    if [ -d /var/vcap/jobs/rabbitmq-server/etc ]
+    then
+        rabbitmq_etc_dir='/var/vcap/jobs/rabbitmq-server/etc'
+    fi
+
     # End PCF / BOSH init
 
     if [ -z "$RABBITMQ_ENV" ]
@@ -477,6 +482,13 @@ collect_rabbitmq_info()
                 printf '.'
             fi
             cp -f "$rabbitmq_enabled_plugins_file" "$rabbitmq_output_etc_dir"
+        fi
+
+        if [ -d "$rabbitmq_etc_dir/conf.d" ]
+        then
+            readonly rabbitmq_output_etc_confd_dir="$rabbitmq_output_etc_dir/conf.d"
+            mkdir_or_die "$rabbitmq_output_etc_confd_dir"
+            cp -f "$rabbitmq_etc_dir"/conf.d/* "$rabbitmq_output_etc_confd_dir"
         fi
     else
         printf "[WARN] '%s' directory not present.\\n" "$rabbitmq_etc_dir"
