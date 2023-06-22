@@ -1,6 +1,6 @@
-# Data Collection Form for Tanzu RabbitMQ for Kubernetes Issues that Require Further Investigation/Escalation
+# Data Collection Form for VMware RabbitMQ for Kubernetes Issues that Require Further Investigation/Escalation
 
-If a a Tanzu RabbitMQ for Kubernetes issue needs to be assigned to the Tanzu RabbitMQ for Kubernetes Research and Development team for further investigation and resolution, please answer the questions in this form and submit these answers in the ticket that you are assigning to the research and development to get the issue resolved.
+If a VMware RabbitMQ for Kubernetes issue needs to be assigned to the VMware RabbitMQ for Kubernetes Research and Development team for further investigation and resolution, please answer the questions in this form and submit these answers in the ticket that you are assigning to the research and development to get the issue resolved.
 
 ## The Research and Development Team Need the Following Information to Work on the Issue
 
