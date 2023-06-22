@@ -195,6 +195,11 @@ init_environment()
 
     if [ -z "$RABBITMQ_ENV" ]
     then
+        RABBITMQ_ENV="$(which rabbitmq-env)"
+    fi
+
+    if [ -z "$RABBITMQ_ENV" ]
+    then
         RABBITMQ_ENV='/usr/lib/rabbitmq/bin/rabbitmq-env'
     fi
     if [ -z "$RABBITMQ_SCRIPTS_DIR" ]
@@ -282,8 +287,12 @@ collect()
         return
     fi
 
+    if [ $verbose -gt 2 ]
+    then
+        printf "[DEBUG] running '%s'\\n" "$*"
+    fi
     # shellcheck disable=SC2048
-    $* >> "$collect_output_dir/$collect_outfile" 2>&1
+    $* < /dev/null >> "$collect_output_dir/$collect_outfile" 2>&1
     collect_rv=$?
 
     # Record the text of the command and the returned value in the .info/$out
@@ -291,10 +300,6 @@ collect()
     # Note: this will miss some escaping for, e.g., find, but it's not critical.
     # The command that was run can be fetched with  `head -1 .info/$out`.
     # The returned value can be fetched with        `tail -1 .info/$out`.
-    if [ $verbose -gt 2 ]
-    then
-        printf "[DEBUG] running '%s'\\n" "$*"
-    fi
     echo "$*" > "$collect_output_info_dir/$collect_outfile"
     echo $collect_rv >> "$collect_output_info_dir/$collect_outfile"
 
@@ -509,24 +514,22 @@ collect_rabbitmq_info()
         printf "[WARN] '%s' directory not present.\\n" "$RABBITMQ_LOG_BASE"
     fi
 
-    rabbitmqctl_timeout=120
+    with_timeout="timeout --kill-after 30 120"
 
-    collect_rabbitmq rabbitmqctl_status timeout "$rabbitmqctl_timeout" rabbitmqctl status
+    collect_rabbitmq rabbitmqctl_status $with_timeout rabbitmqctl status
 
-    collect_rabbitmq rabbitmqctl_environment timeout "$rabbitmqctl_timeout" rabbitmqctl environment
+    collect_rabbitmq rabbitmqctl_cluster_status $with_timeout rabbitmqctl cluster_status
 
-    collect_rabbitmq rabbitmqctl_cluster_status timeout "$rabbitmqctl_timeout" rabbitmqctl cluster_status
+    collect_rabbitmq rabbitmqctl_maybe_stuck $with_timeout rabbitmqctl eval 'rabbit_diagnostics:maybe_stuck().'
 
-    collect_rabbitmq rabbitmqctl_maybe_stuck timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'rabbit_diagnostics:maybe_stuck().'
-
-    pid=$(timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'os:getpid().' | tr -d '""')
+    pid=$($with_timeout rabbitmqctl eval 'os:getpid().' | tr -d '""')
     [ -f "/proc/$pid/limits" ] && collect_rabbitmq rabbitmq_pid_limits cat "/proc/$pid/limits"
 
-    collect_rabbitmq rabbitmqctl_process_limit timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'erlang:system_info(process_limit).'
+    collect_rabbitmq rabbitmqctl_process_limit $with_timeout rabbitmqctl eval 'erlang:system_info(process_limit).'
 
-    collect_rabbitmq rabbitmqctl_report timeout "$rabbitmqctl_timeout" rabbitmqctl report
+    collect_rabbitmq rabbitmqctl_report $with_timeout rabbitmqctl report
 
-    collect_rabbitmq rabbitmqctl_inet_i timeout "$rabbitmqctl_timeout" rabbitmqctl eval 'inet:i().'
+    collect_rabbitmq rabbitmqctl_inet_i $with_timeout rabbitmqctl eval 'inet:i().'
 }
 
 collect_overview_info()
