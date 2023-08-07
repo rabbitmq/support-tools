@@ -73,22 +73,44 @@ function New-TemporaryDirectory
     return $tmpDir
 }
 
+function Get-Times
+{
+    New-Variable -Name now -Option Constant -Value (Get-Date)
+
+    # Local Time
+    New-Variable -Name nowLocalStr -Option Constant -Value ($now.ToString("yyyy-MM-ddTHH:mm:ss.fffK"))
+
+    # UTC
+    New-Variable -Name nowUTC -Option Constant -Value ($now.ToUniversalTime())
+    New-Variable -Name nowUTCStr -Option Constant -Value ($nowUTC.ToString("yyyyMMddTHHmmssZ"))
+    New-Variable -Name nowUTCFileName -Option Constant -Value ($nowUTC.ToString("yyyyMMddTHHmmssZ"))
+
+    $rv = New-Object PsObject -Property @{
+        Now = $now;
+        NowLocal = $nowLocalStr;
+        NowUTC = $nowUTCStr;
+        NowFileName = $nowUTCFileName;
+    }
+
+    return $rv
+}
+
 function Run-Init
 {
-    New-Variable -Name startTimeUTC -Option Constant -Value ((Get-Date).ToUniversalTime()).ToString("yyyyMMddTHHmmssZ")
+    New-Variable -Name t -Option Constant -Value (Get-Times)
 
-    $startMsg = "START TIME UTC: $startTimeUTC"
+    $startMsg = "START TIME UTC: $($t.NowUTC) LOCAL: $($t.NowLocal)"
     Write-Verbose -Message $startMsg
 
     New-Variable -Name curdir -Scope Script -Option Constant -Value $PSScriptRoot
     Write-Verbose -Message "curdir: $curdir"
 
     New-Variable -Name outputFile -Scope Script -Option Constant -Value `
-        $(Join-Path -Path $curdir -ChildPath "rabbitmq-collect-env-output-$startTimeUTC.txt")
+        $(Join-Path -Path $curdir -ChildPath "rabbitmq-collect-env-output-$($t.NowFileName).txt")
     Write-Verbose -Message "outputFile: $outputFile"
 
     New-Variable -Name logsArchiveFile -Scope Script -Option Constant -Value `
-        $(Join-Path -Path $curdir -ChildPath "rabbitmq-collect-env-logs-$startTimeUTC.zip")
+        $(Join-Path -Path $curdir -ChildPath "rabbitmq-collect-env-logs-$($t.NowFileName).zip")
     Write-Verbose -Message "logsArchiveFile: $logsArchiveFile"
 
     $initOutFileArgs = @{
@@ -338,8 +360,8 @@ function Run-Main
 
 function Run-End
 {
-    New-Variable -Name stopTimeUTC -Option Constant -Value ((Get-Date).ToUniversalTime()).ToString("yyyyMMddTHHmmssZ")
-    $msg = "STOP TIME UTC: $stopTimeUTC"
+    New-Variable -Name t -Option Constant -Value (Get-Times)
+    $msg = "STOP TIME UTC: $($t.NowUTC) LOCAL: $($t.NowLocal)"
     Write-Verbose -Message $msg
     Add-Content @addContentArgs -Value "$sep$([Environment]::NewLine)$msg"
 }
