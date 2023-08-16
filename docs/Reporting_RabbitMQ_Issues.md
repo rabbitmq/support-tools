@@ -34,6 +34,11 @@ Other necessary information includes the following:
 * In which way did the observed behaviour change after these remedies?
 * Were all RabbitMQ nodes restarted at once or only the affected node(s)?
 * Did any RabbitMQ node remain running during restarts?
+* Is the issue limited to certain queues?
+* Is the issue limited to certain exchanges?
+* Does the issue involve Federated queues or exchanges?
+  * If Federation is involved, what is the topology?
+  * If queue Federation is involved, where are messages published and consumed?
 
 ## Workload Questions
 
