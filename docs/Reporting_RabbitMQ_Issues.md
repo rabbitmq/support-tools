@@ -8,7 +8,7 @@ The [`rabbitmq-collect-env`](https://raw.githubusercontent.com/rabbitmq/support-
 
 If the script can't be run, use `rabbitmqctl` commands to get information like policies, environment and report.
 
-Other necessary information includes the following:
+Other _absolutely necessary_ information includes the following:
 
 * RabbitMQ version
 * Erlang version
@@ -21,8 +21,21 @@ Other necessary information includes the following:
 
 ## General Questions
 
+### Essential Information
+
+Answering these questions usually pinpoints the root cause of an issue.
+
+* How long did the RabbitMQ environment work correctly before the issue started?
 * When did the issue first occur (including time zone)? 
-* Is it a recurring issue? If so, is recurrence regular or intermittent?
+* What changed on or about the same time as when the issue started? _ANY_ changes must be noted:
+  * Software versions (including operating system patches)
+  * Environment changes - networking, firewalls
+  * Client application changes - AMQP library version, client application updates
+  * Client application workload - did it increase or decrease outside of the normal range?
+* Is the issue recurring? If so, is recurrence regular or intermittent?
+
+### Other Information
+
 * Which protocol(s) are being used? e.g. AMQP / MQTT / STOMP
 * What exceptions are being returned via the RabbitMQ client library?
 * Which connection / channel / queue / exchange are the exceptions for?
@@ -39,16 +52,13 @@ Other necessary information includes the following:
 * Does the issue involve Federated queues or exchanges?
   * If Federation is involved, what is the topology?
   * If queue Federation is involved, where are messages published and consumed?
-
-## Workload Questions
-
 * How many connections & channels does the cluster handle?
 * How many queues does the RabbitMQ cluster have?
 * How many messages are published / consumed on average and during peaks?
 * How large are message payloads?
 * Are the messages published as persistent & queues durable?
 
-## Deployment
+### Deployment
 
 * How is RabbitMQ deployed?
 * On which IaaS is the RabbitMQ cluster deployed? AWS / GCP / vSphere / bare-metal
