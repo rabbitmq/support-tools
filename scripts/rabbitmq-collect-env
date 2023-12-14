@@ -514,21 +514,30 @@ collect_rabbitmq_info()
         printf "[WARN] '%s' directory not present.\\n" "$RABBITMQ_LOG_BASE"
     fi
 
-    with_timeout="timeout --kill-after 30 120"
+    readonly with_timeout="timeout --kill-after 30 120"
 
+    # shellcheck disable=SC2086
+    collect_rabbitmq rabbitmqctl_vhosts $with_timeout rabbitmqctl list_vhosts name default_queue_type cluster_state
+
+    # shellcheck disable=SC2086
     collect_rabbitmq rabbitmqctl_status $with_timeout rabbitmqctl status
 
+    # shellcheck disable=SC2086
     collect_rabbitmq rabbitmqctl_cluster_status $with_timeout rabbitmqctl cluster_status
 
+    # shellcheck disable=SC2086
     collect_rabbitmq rabbitmqctl_maybe_stuck $with_timeout rabbitmqctl eval 'rabbit_diagnostics:maybe_stuck().'
 
     pid=$($with_timeout rabbitmqctl eval 'os:getpid().' | tr -d '""')
     [ -f "/proc/$pid/limits" ] && collect_rabbitmq rabbitmq_pid_limits cat "/proc/$pid/limits"
 
+    # shellcheck disable=SC2086
     collect_rabbitmq rabbitmqctl_process_limit $with_timeout rabbitmqctl eval 'erlang:system_info(process_limit).'
 
+    # shellcheck disable=SC2086
     collect_rabbitmq rabbitmqctl_report $with_timeout rabbitmqctl report
 
+    # shellcheck disable=SC2086
     collect_rabbitmq rabbitmqctl_inet_i $with_timeout rabbitmqctl eval 'inet:i().'
 }
 
