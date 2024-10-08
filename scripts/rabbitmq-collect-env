@@ -181,6 +181,12 @@ init_environment()
         RABBITMQ_ENV='/var/vcap/jobs/rabbitmq-server/packages/rabbitmq-server/privbin/rabbitmq-env'
     fi
 
+    if [ -z "$RABBITMQ_ENV" ] && \
+        [ -f /var/vcap/jobs/rabbitmq-server/packages/rabbitmq-server/sbin/rabbitmq-env ]
+    then
+        RABBITMQ_ENV='/var/vcap/jobs/rabbitmq-server/packages/rabbitmq-server/sbin/rabbitmq-env'
+    fi
+
     if [ -d /var/vcap/jobs/rabbitmq-server/packages/rabbitmq-server/etc ]
     then
         rabbitmq_etc_dir='/var/vcap/jobs/rabbitmq-server/packages/rabbitmq-server/etc'
