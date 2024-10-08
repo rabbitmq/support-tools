@@ -15,10 +15,6 @@ or cannot ship with RabbitMQ for any other reason:
  information that can provide additional insights about the overall state of the
  node
 
-* [rebalance-queue-masters](./scripts/rebalance-queue-masters): given a
- RabbitMQ cluster with unevenly spread queue masters, this script will
- rebalance queue masters evenly, across all RabbitMQ nodes in the cluster
-
 ## Copyright & License
 
 (c) VMware, Inc or its affiliates. 2007-2023
