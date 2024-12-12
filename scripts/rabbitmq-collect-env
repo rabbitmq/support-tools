@@ -351,7 +351,7 @@ collect_system_info()
     collect_system ifconfig     ifconfig -a
     collect_system java_version java -version
     collect_system last         last
-    collect_system linux_uptime cat /proc/uptime
+    collect_system proc_uptime  cat /proc/uptime
     collect_system lsb_release  lsb_release -a
     collect_system lsblk        lsblk -a
     collect_system lscpu        lscpu
@@ -396,6 +396,14 @@ collect_system_info()
         collect_system blockdev_not_available echo 'blockdev command is not available'
     fi
 
+    if command_exists systemctl
+    then
+        collect_system systemctl_show_rabbitmq systemctl show rabbitmq-server
+        collect_system systemctl_status_rabbitmq systemctl status rabbitmq-server
+    else
+        collect_system systemctl_not_available echo 'systemctl command is not available'
+    fi
+
     # Running iptables commands if the module is not loaded can automatically
     # load them. This is rarely desired and can even cause connectivity
     # problems if, e.g., nf_conntrack gets autoloaded and autoenabled.
@@ -437,7 +445,8 @@ collect_system_info()
     [ -f /proc/version ]   && collect_system proc_version cat /proc/version
     [ -f /proc/cpuinfo ]   && collect_system proc_cpuinfo cat /proc/cpuinfo
     [ -f /proc/meminfo ]   && collect_system proc_meminfo cat /proc/meminfo
-    [ -f /proc/diskstats ] && collect_system diskstats cat /proc/diskstats
+    [ -f /proc/diskstats ] && collect_system proc_diskstats cat /proc/diskstats
+    [ -f /proc/vmstat ]    && collect_system proc_vmstat cat /proc/vmstat
 
     ## Collect Directories and Finds
     [ -d /dev/disk/by-id ] && collect_system disk_by_id \
