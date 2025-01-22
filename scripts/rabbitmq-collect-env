@@ -29,15 +29,17 @@ set +e
 
 # value greater than 2 is debug verbosity
 verbose=0
+
 hostname="$(hostname)"
+readonly hostname
 
 output_dir='output_dir_init'
 system_output_dir='system_output_dir_init'
 rabbitmq_output_dir='rabbitmq_output_dir_init'
 
-# default argument to cp command when used
 cp_args='-f'
 rm_args='-rf'
+mv_args='-f'
 
 onexit()
 {
@@ -147,6 +149,7 @@ build_command_args()
     then
         cp_args='-vf'
         rm_args='-vrf'
+        mv_args='-vf'
     fi
 }
 
@@ -484,31 +487,41 @@ collect_rabbitmq_info()
         mkdir_or_die "$rabbitmq_output_etc_dir"
         # gh-31
         # Rather than copying everything in /etc/rabbitmq, only copy *.conf* files and enabled_plugins
-        if [ $verbose -gt 2 ]
+        if [ -d "$rabbitmq_etc_dir" ] && ls -1 "$rabbitmq_etc_dir"/*.conf* > /dev/null 2>&1
         then
-            echo "[DEBUG] running command 'cp -f \"$rabbitmq_etc_dir/*.conf*\" \"$rabbitmq_output_etc_dir\""
-        else
-            printf '.'
+            if [ $verbose -gt 2 ]
+            then
+                echo "[DEBUG] running command 'cp $cp_args \"$rabbitmq_etc_dir/*.conf*\" \"$rabbitmq_output_etc_dir\""
+            else
+                printf '.'
+            fi
+            cp "$cp_args" "$rabbitmq_etc_dir"/*.conf* "$rabbitmq_output_etc_dir"
         fi
-        cp -f "$rabbitmq_etc_dir"/*.conf* "$rabbitmq_output_etc_dir"
 
         readonly rabbitmq_enabled_plugins_file="$rabbitmq_etc_dir/enabled_plugins"
         if [ -f "$rabbitmq_enabled_plugins_file" ]
         then
             if [ $verbose -gt 2 ]
             then
-                echo "[DEBUG] running command 'cp -f \"$rabbitmq_enabled_plugins_file\" \"$rabbitmq_output_etc_dir\""
+                echo "[DEBUG] running command 'cp $cp_args \"$rabbitmq_enabled_plugins_file\" \"$rabbitmq_output_etc_dir\""
             else
                 printf '.'
             fi
-            cp -f "$rabbitmq_enabled_plugins_file" "$rabbitmq_output_etc_dir"
+            cp "$cp_args" "$rabbitmq_enabled_plugins_file" "$rabbitmq_output_etc_dir"
         fi
 
-        if [ -d "$rabbitmq_etc_dir/conf.d" ]
+        readonly rabbitmq_etc_confd_dir="$rabbitmq_etc_dir/conf.d"
+        if [ -d "$rabbitmq_etc_confd_dir" ] && ls -1 "$rabbitmq_etc_confd_dir"/* > /dev/null 2>&1
         then
             readonly rabbitmq_output_etc_confd_dir="$rabbitmq_output_etc_dir/conf.d"
             mkdir_or_die "$rabbitmq_output_etc_confd_dir"
-            cp -f "$rabbitmq_etc_dir"/conf.d/* "$rabbitmq_output_etc_confd_dir"
+            if [ $verbose -gt 2 ]
+            then
+                echo "[DEBUG] running command 'cp $cp_args \"$rabbitmq_etc_confd_dir/*\" \"$rabbitmq_output_etc_confd_dir\""
+            else
+                printf '.'
+            fi
+            cp "$cp_args" "$rabbitmq_etc_confd_dir"/* "$rabbitmq_output_etc_confd_dir"
         fi
     else
         printf "[WARN] '%s' directory not present.\\n" "$rabbitmq_etc_dir"
@@ -580,9 +593,21 @@ build_output_archive()
     else
         printf '.'
     fi
-    output_archive="$RABBITMQ_LOG_BASE/rabbitmq-env-$hostname-$(date '+%Y%m%d-%H%M%S').tgz"
+
+    old_output_archive_dir="$(mktemp -d)"
+    readonly old_output_archive_dir
+
+    output_archive_dir="$(mktemp -d)"
+    readonly output_archive_dir
+
+    output_archive="$output_archive_dir/rabbitmq-env-$hostname-$(date '+%Y%m%d-%H%M%S').tgz"
+    readonly output_archive
+
+    printf "[INFO] moving old tgz archives (if any) to : '%s'\\n" "$old_output_archive_dir"
+    find "$output_dir" -type f -name 'rabbitmq-env-*.tgz' -exec mv "$mv_args" {} "$old_output_archive_dir" \;
+
     tar -C "$output_dir" -zcf "$output_archive" .
-    printf "\\n[INFO] output archive: '%s'\\n" "$output_archive"
+    printf "[INFO] output archive: '%s'\\n" "$output_archive"
 }
 
 init()
