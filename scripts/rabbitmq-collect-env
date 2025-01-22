@@ -29,7 +29,9 @@ set +e
 
 # value greater than 2 is debug verbosity
 verbose=0
+
 hostname="$(hostname)"
+readonly hostname
 
 output_dir='output_dir_init'
 system_output_dir='system_output_dir_init'
@@ -580,7 +582,16 @@ build_output_archive()
     else
         printf '.'
     fi
-    output_archive="$RABBITMQ_LOG_BASE/rabbitmq-env-$hostname-$(date '+%Y%m%d-%H%M%S').tgz"
+
+    output_archive_dir="$(mktemp -d)"
+    readonly output_archive_dir
+
+    output_archive="$output_archive_dir/rabbitmq-env-$hostname-$(date '+%Y%m%d-%H%M%S').tgz"
+    readonly output_archive
+
+    printf "\\n[INFO] moving old tgz archives (if any) to : '%s'\\n" "$output_archive_dir"
+    find "$output_dir" -type f -name '*.tgz' -exec mv -vf "$output_archive_dir" {} \;
+
     tar -C "$output_dir" -zcf "$output_archive" .
     printf "\\n[INFO] output archive: '%s'\\n" "$output_archive"
 }
