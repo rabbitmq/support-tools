@@ -590,7 +590,7 @@ build_output_archive()
     readonly output_archive
 
     printf "\\n[INFO] moving old tgz archives (if any) to : '%s'\\n" "$output_archive_dir"
-    find "$output_dir" -type f -name '*.tgz' -exec mv -vf "$output_archive_dir" {} \;
+    find "$output_dir" -type f -name '*.tgz' -exec mv -vf {} "$output_archive_dir" \;
 
     tar -C "$output_dir" -zcf "$output_archive" .
     printf "\\n[INFO] output archive: '%s'\\n" "$output_archive"
