@@ -583,14 +583,17 @@ build_output_archive()
         printf '.'
     fi
 
+    old_output_archive_dir="$(mktemp -d)"
+    readonly old_output_archive_dir
+
     output_archive_dir="$(mktemp -d)"
     readonly output_archive_dir
 
     output_archive="$output_archive_dir/rabbitmq-env-$hostname-$(date '+%Y%m%d-%H%M%S').tgz"
     readonly output_archive
 
-    printf "\\n[INFO] moving old tgz archives (if any) to : '%s'\\n" "$output_archive_dir"
-    find "$output_dir" -type f -name '*.tgz' -exec mv -vf {} "$output_archive_dir" \;
+    printf "\\n[INFO] moving old tgz archives (if any) to : '%s'\\n" "$old_output_archive_dir"
+    find "$output_dir" -type f -name 'rabbitmq-env-*.tgz' -exec mv -vf {} "$old_output_archive_dir" \;
 
     tar -C "$output_dir" -zcf "$output_archive" .
     printf "\\n[INFO] output archive: '%s'\\n" "$output_archive"
