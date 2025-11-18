@@ -47,8 +47,15 @@ onexit()
     then
         if [ $verbose -gt 2 ]
         then
-            printf "[DEBUG] preserving output directory '%s'\\n" "$output_dir"
+            printf "[DEBUG] preserving output directory '%s'\\n" \
+                   "$output_dir"
+        elif [ -n "$RABBITMQ_COLLECT_ENV_TEMP_DIR" ]
+        then
+            # User specified temp dir - inform them about cleanup
+            printf "[INFO] temporary artifacts preserved in: '%s'\\n" \
+                   "$output_dir"
         else
+            # Default behavior: clean up temp directory
             rm "$rm_args" "$output_dir"
         fi
     fi
@@ -107,6 +114,34 @@ Usage: rabbitmq-collect-env [-h] [-v [-v [-v]]]
 -h, --help       Print this usage statement.
 -v, --verbose    Print verbose messages to stdout. More instances of
                  this option will result in more verbose output.
+
+Environment Variables:
+  RABBITMQ_COLLECT_ENV_OUTPUT_DIR
+                 Directory where the final tarball will be created.
+                 If not set, a temporary directory will be used.
+                 The directory will be created if it doesn't exist.
+
+  RABBITMQ_COLLECT_ENV_TEMP_DIR
+                 Directory where temporary/intermediary artifacts will
+                 be stored during collection. If not set, a system
+                 temporary directory will be used and cleaned up on exit.
+                 When set, artifacts are preserved after script completion.
+                 The directory will be created if it doesn't exist.
+
+Examples:
+  # Use default temporary locations
+  rabbitmq-collect-env
+
+  # Specify output directory for final tarball
+  RABBITMQ_COLLECT_ENV_OUTPUT_DIR=/var/tmp rabbitmq-collect-env
+
+  # Specify both output and temp directories
+  RABBITMQ_COLLECT_ENV_OUTPUT_DIR=/var/tmp \
+  RABBITMQ_COLLECT_ENV_TEMP_DIR=/scratch \
+  rabbitmq-collect-env
+
+  # Keep temp artifacts for debugging
+  RABBITMQ_COLLECT_ENV_TEMP_DIR=/tmp/debug rabbitmq-collect-env -vvv
 EOF
 }
 
@@ -129,7 +164,48 @@ parse_options()
 
 create_output_directories()
 {
-    output_dir="$(mktemp -d)"
+    # Determine working directory for intermediate artifacts
+    if [ -n "$RABBITMQ_COLLECT_ENV_TEMP_DIR" ]
+    then
+        # User specified a temp directory via environment variable
+        if [ ! -d "$RABBITMQ_COLLECT_ENV_TEMP_DIR" ]
+        then
+            # Directory doesn't exist, try to create it
+            mkdir_or_die "$RABBITMQ_COLLECT_ENV_TEMP_DIR"
+        fi
+
+        # Check if directory is writable
+        if [ ! -w "$RABBITMQ_COLLECT_ENV_TEMP_DIR" ]
+        then
+            printf "[ERROR] temp directory '%s' is not writable\\n" \
+                   "$RABBITMQ_COLLECT_ENV_TEMP_DIR" 1>&2
+            exit 1
+        fi
+
+        # Create a timestamped subdirectory to avoid conflicts
+        output_dir="$RABBITMQ_COLLECT_ENV_TEMP_DIR/rabbitmq-collect-$$-$(date '+%Y%m%d-%H%M%S')"
+        mkdir_or_die "$output_dir"
+
+        printf "[INFO] temporary artifacts will be stored in: '%s'\\n" \
+               "$RABBITMQ_COLLECT_ENV_TEMP_DIR"
+
+        if [ $verbose -gt 2 ]
+        then
+            printf "[DEBUG] using user-specified temp directory: '%s'\\n" \
+                   "$RABBITMQ_COLLECT_ENV_TEMP_DIR"
+            printf "[DEBUG] created working directory: '%s'\\n" \
+                   "$output_dir"
+        fi
+    else
+        # Default behavior: use mktemp
+        output_dir="$(mktemp -d)"
+        if [ $verbose -gt 2 ]
+        then
+            printf "[DEBUG] created temporary working directory: '%s'\\n" \
+                   "$output_dir"
+        fi
+    fi
+
     top_output_dir="$output_dir/$hostname"
     system_output_dir="$top_output_dir/system"
     rabbitmq_output_dir="$top_output_dir/rabbitmq"
@@ -587,24 +663,48 @@ collect_overview_info()
 
 build_output_archive()
 {
-    if [ $verbose -gt 2 ]
+    # Determine output archive directory
+    if [ -n "$RABBITMQ_COLLECT_ENV_OUTPUT_DIR" ]
     then
-        echo "[DEBUG] running command 'tar -C \"$output_dir\" -zcf \"$RABBITMQ_LOG_BASE/rabbitmq-env-$hostname.tgz\"'"
+        # User specified an output directory via environment variable
+        printf "[INFO] output archive will be created in: '%s'\\n" \
+               "$RABBITMQ_COLLECT_ENV_OUTPUT_DIR"
+
+        if [ ! -d "$RABBITMQ_COLLECT_ENV_OUTPUT_DIR" ]
+        then
+            # Directory doesn't exist, try to create it
+            mkdir_or_die "$RABBITMQ_COLLECT_ENV_OUTPUT_DIR"
+        fi
+
+        # Check if directory is writable
+        if [ ! -w "$RABBITMQ_COLLECT_ENV_OUTPUT_DIR" ]
+        then
+            printf "[ERROR] output directory '%s' is not writable\\n" \
+                   "$RABBITMQ_COLLECT_ENV_OUTPUT_DIR" 1>&2
+            exit 1
+        fi
+
+        output_archive_dir="$RABBITMQ_COLLECT_ENV_OUTPUT_DIR"
+        if [ $verbose -gt 2 ]
+        then
+            printf "[DEBUG] using user-specified output directory: '%s'\\n" \
+                   "$output_archive_dir"
+        fi
     else
-        printf '.'
+        # Default behavior: use temporary directory
+        output_archive_dir="$(mktemp -d)"
     fi
-
-    old_output_archive_dir="$(mktemp -d)"
-    readonly old_output_archive_dir
-
-    output_archive_dir="$(mktemp -d)"
     readonly output_archive_dir
 
     output_archive="$output_archive_dir/rabbitmq-env-$hostname-$(date '+%Y%m%d-%H%M%S').tgz"
     readonly output_archive
 
-    printf "[INFO] moving old tgz archives (if any) to : '%s'\\n" "$old_output_archive_dir"
-    find "$output_dir" -type f -name 'rabbitmq-env-*.tgz' -exec mv "$mv_args" {} "$old_output_archive_dir" \;
+    if [ $verbose -gt 2 ]
+    then
+        echo "[DEBUG] running command 'tar -C \"$output_dir\" -zcf \"<output_archive>\"'"
+    else
+        printf '.'
+    fi
 
     tar -C "$output_dir" -zcf "$output_archive" .
     printf "[INFO] output archive: '%s'\\n" "$output_archive"
